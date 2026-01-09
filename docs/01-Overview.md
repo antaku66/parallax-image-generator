@@ -27,31 +27,31 @@
 
 ### 4.1 コア技術
 
-| カテゴリ | 技術 | バージョン | ライセンス | 選定理由 |
-| --- | --- | --- | --- | --- |
-| ビルドツール | Vite | ^6.0.0 | MIT | 高速HMR、ESM対応 |
-| UIフレームワーク | React | ^19.0.0 | MIT | コンポーネント設計、エコシステム |
-| 型システム | TypeScript | ^5.7.0 | Apache 2.0 | 型安全性、開発効率 |
-| スタイリング | TailwindCSS | ^4.0.0 | MIT | ユーティリティファースト、軽量 |
+| カテゴリ         | 技術        | バージョン | ライセンス | 選定理由                         |
+| ---------------- | ----------- | ---------- | ---------- | -------------------------------- |
+| ビルドツール     | Vite        | ^6.0.0     | MIT        | 高速HMR、ESM対応                 |
+| UIフレームワーク | React       | ^19.0.0    | MIT        | コンポーネント設計、エコシステム |
+| 型システム       | TypeScript  | ^5.7.0     | Apache 2.0 | 型安全性、開発効率               |
+| スタイリング     | TailwindCSS | ^4.0.0     | MIT        | ユーティリティファースト、軽量   |
 
 ### 4.2 ML/AI ライブラリ
 
-| ライブラリ | 用途 | モデルサイズ | ライセンス |
-| --- | --- | --- | --- |
-| @mediapipe/tasks-vision | セグメンテーション | 454KB | Apache 2.0 |
-| onnxruntime-web | ML推論エンジン | - | MIT |
-| MiDaS v2.1 small | 深度推定 | ~20MB | MIT |
-| LaMa | インペインティング | ~208MB (FP32) / ~52MB (INT8) | Apache 2.0 |
+| ライブラリ              | 用途               | モデルサイズ                 | ライセンス |
+| ----------------------- | ------------------ | ---------------------------- | ---------- |
+| @mediapipe/tasks-vision | セグメンテーション | 454KB                        | Apache 2.0 |
+| onnxruntime-web         | ML推論エンジン     | -                            | MIT        |
+| MiDaS v2.1 small        | 深度推定           | ~20MB                        | MIT        |
+| LaMa                    | インペインティング | ~208MB (FP32) / ~52MB (INT8) | Apache 2.0 |
 
 ### 4.3 レンダリング・状態管理
 
-| ライブラリ | 用途 | ライセンス |
-| --- | --- | --- |
-| three | 3Dレンダリング | MIT |
-| @react-three/fiber | React-Three.js統合 | MIT |
-| @react-three/drei | Three.jsヘルパー | MIT |
-| zustand | 状態管理 | MIT |
-| comlink | Web Worker通信 | Apache 2.0 |
+| ライブラリ         | 用途               | ライセンス |
+| ------------------ | ------------------ | ---------- |
+| three              | 3Dレンダリング     | MIT        |
+| @react-three/fiber | React-Three.js統合 | MIT        |
+| @react-three/drei  | Three.jsヘルパー   | MIT        |
+| zustand            | 状態管理           | MIT        |
+| comlink            | Web Worker通信     | Apache 2.0 |
 
 ### 4.4 ライセンス適合性
 

@@ -66,28 +66,28 @@
 
 ## 2. 重要ファイル一覧
 
-| ファイルパス | 責務 |
-| --- | --- |
+| ファイルパス                             | 責務                             |
+| ---------------------------------------- | -------------------------------- |
 | src/services/pipeline/PipelineManager.ts | パイプラインオーケストレーション |
-| src/workers/inpainting.worker.ts | LaMa推論（最重量処理） |
-| src/workers/segmentation.worker.ts | MediaPipeセグメンテーション |
-| src/workers/depth.worker.ts | MiDaS深度推定 |
-| src/components/viewer/ThreeScene.tsx | 視差レンダリング |
-| src/services/models/ModelManager.ts | モデル管理・キャッシュ |
-| src/store/useAppStore.ts | グローバル状態管理 |
-| src/hooks/useImageProcessor.ts | 画像処理フック |
-| src/utils/deviceDetection.ts | デバイス性能検出 |
+| src/workers/inpainting.worker.ts         | LaMa推論（最重量処理）           |
+| src/workers/segmentation.worker.ts       | MediaPipeセグメンテーション      |
+| src/workers/depth.worker.ts              | MiDaS深度推定                    |
+| src/components/viewer/ThreeScene.tsx     | 視差レンダリング                 |
+| src/services/models/ModelManager.ts      | モデル管理・キャッシュ           |
+| src/store/useAppStore.ts                 | グローバル状態管理               |
+| src/hooks/useImageProcessor.ts           | 画像処理フック                   |
+| src/utils/deviceDetection.ts             | デバイス性能検出                 |
 
 ---
 
 ## 3. ブラウザ互換性
 
-| 機能 | Chrome | Firefox | Safari | Edge |
-| --- | --- | --- | --- | --- |
-| WebGPU | 113+ | 実験的 | TP | 113+ |
-| WASM | 57+ | 52+ | 11+ | 16+ |
-| Web Worker | 4+ | 3.5+ | 4+ | 12+ |
-| IndexedDB | 23+ | 10+ | 10+ | 12+ |
+| 機能       | Chrome | Firefox | Safari | Edge |
+| ---------- | ------ | ------- | ------ | ---- |
+| WebGPU     | 113+   | 実験的  | TP     | 113+ |
+| WASM       | 57+    | 52+     | 11+    | 16+  |
+| Web Worker | 4+     | 3.5+    | 4+     | 12+  |
+| IndexedDB  | 23+    | 10+     | 10+    | 12+  |
 
 **推奨ブラウザ**: Chrome 113以降（WebGPU対応）
 

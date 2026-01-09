@@ -146,16 +146,16 @@ parallax/
 
 ### 2.3 パッケージ役割一覧
 
-| パッケージ | 役割 |
-| --- | --- |
-| react, react-dom | UIフレームワーク |
-| three | 3Dレンダリングエンジン |
-| @react-three/fiber | React-Three.js統合 |
-| @react-three/drei | Three.jsヘルパー |
-| onnxruntime-web | ONNX ML推論（MiDaS, LaMa） |
-| @mediapipe/tasks-vision | セグメンテーション |
-| zustand | 状態管理 |
-| comlink | Web Worker通信簡素化 |
-| idb | IndexedDB Promise API |
-| vite | ビルドツール |
-| tailwindcss | CSSフレームワーク |
+| パッケージ              | 役割                       |
+| ----------------------- | -------------------------- |
+| react, react-dom        | UIフレームワーク           |
+| three                   | 3Dレンダリングエンジン     |
+| @react-three/fiber      | React-Three.js統合         |
+| @react-three/drei       | Three.jsヘルパー           |
+| onnxruntime-web         | ONNX ML推論（MiDaS, LaMa） |
+| @mediapipe/tasks-vision | セグメンテーション         |
+| zustand                 | 状態管理                   |
+| comlink                 | Web Worker通信簡素化       |
+| idb                     | IndexedDB Promise API      |
+| vite                    | ビルドツール               |
+| tailwindcss             | CSSフレームワーク          |
