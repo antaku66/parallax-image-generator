@@ -42,11 +42,11 @@ flowchart TD
 
 ```typescript
 interface ProcessedImage {
-  imageData: ImageData;      // RGBA形式の画像データ
-  originalWidth: number;     // 元の幅
-  originalHeight: number;    // 元の高さ
-  processedWidth: number;    // 処理後の幅
-  processedHeight: number;   // 処理後の高さ
+  imageData: ImageData; // RGBA形式の画像データ
+  originalWidth: number; // 元の幅
+  originalHeight: number; // 元の高さ
+  processedWidth: number; // 処理後の幅
+  processedHeight: number; // 処理後の高さ
 }
 ```
 
@@ -78,9 +78,9 @@ interface ProcessedImage {
 
 ```typescript
 interface SegmentationResult {
-  foregroundMask: ImageData;  // 前景（人物）マスク（白=前景）
-  backgroundMask: ImageData;  // 背景マスク（白=背景）
-  confidence: Float32Array;   // ピクセルごとの信頼度
+  foregroundMask: ImageData; // 前景（人物）マスク（白=前景）
+  backgroundMask: ImageData; // 背景マスク（白=背景）
+  confidence: Float32Array; // ピクセルごとの信頼度
 }
 ```
 
@@ -90,21 +90,21 @@ interface SegmentationResult {
 
 ```typescript
 // segmentation.worker.ts
-import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
+import { ImageSegmenter, FilesetResolver } from "@mediapipe/tasks-vision";
 
 let segmenter: ImageSegmenter | null = null;
 
 async function initializeSegmenter(): Promise<void> {
   const vision = await FilesetResolver.forVisionTasks(
-    '/models/segmentation/wasm'
+    "/models/segmentation/wasm"
   );
   segmenter = await ImageSegmenter.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath: '/models/segmentation/selfie_multiclass_256x256.tflite',
-      delegate: 'GPU'
+      modelAssetPath: "/models/segmentation/selfie_multiclass_256x256.tflite",
+      delegate: "GPU",
     },
     outputCategoryMask: true,
-    outputConfidenceMasks: true
+    outputConfidenceMasks: true,
   });
 }
 
@@ -144,11 +144,11 @@ async function segment(imageData: ImageData): Promise<SegmentationResult> {
 
 ```typescript
 interface DepthEstimationResult {
-  depthMap: Float32Array;     // 正規化深度（0=近い、1=遠い）
+  depthMap: Float32Array; // 正規化深度（0=近い、1=遠い）
   width: number;
   height: number;
-  minDepth: number;           // 最小深度値
-  maxDepth: number;           // 最大深度値
+  minDepth: number; // 最小深度値
+  maxDepth: number; // 最大深度値
 }
 ```
 
@@ -158,20 +158,22 @@ interface DepthEstimationResult {
 
 ```typescript
 // depth.worker.ts
-import * as ort from 'onnxruntime-web';
+import * as ort from "onnxruntime-web";
 
 let session: ort.InferenceSession | null = null;
 
 async function initializeDepthModel(): Promise<void> {
   // WebGPU優先、WASMフォールバック
-  const providers = ['webgpu', 'wasm'];
+  const providers = ["webgpu", "wasm"];
   session = await ort.InferenceSession.create(
-    '/models/depth/midas_v21_small.onnx',
+    "/models/depth/midas_v21_small.onnx",
     { executionProviders: providers }
   );
 }
 
-async function estimateDepth(imageData: ImageData): Promise<DepthEstimationResult> {
+async function estimateDepth(
+  imageData: ImageData
+): Promise<DepthEstimationResult> {
   if (!session) await initializeDepthModel();
 
   // 前処理: 256x256にリサイズ、正規化
@@ -214,8 +216,8 @@ async function estimateDepth(imageData: ImageData): Promise<DepthEstimationResul
 
 ```typescript
 interface InpaintingResult {
-  inpaintedImage: ImageData;  // 補完済み背景画像
-  processingTime: number;     // 処理時間（ms）
+  inpaintedImage: ImageData; // 補完済み背景画像
+  processingTime: number; // 処理時間（ms）
 }
 ```
 
@@ -225,18 +227,19 @@ interface InpaintingResult {
 
 ```typescript
 // inpainting.worker.ts
-import * as ort from 'onnxruntime-web';
+import * as ort from "onnxruntime-web";
 
 let session: ort.InferenceSession | null = null;
 
-async function initializeLaMa(quality: 'high' | 'balanced'): Promise<void> {
-  const modelPath = quality === 'high'
-    ? '/models/inpainting/lama_fp32.onnx'
-    : '/models/inpainting/lama_int8.onnx';
+async function initializeLaMa(quality: "high" | "balanced"): Promise<void> {
+  const modelPath =
+    quality === "high"
+      ? "/models/inpainting/lama_fp32.onnx"
+      : "/models/inpainting/lama_int8.onnx";
 
-  const providers = quality === 'high' ? ['webgpu', 'wasm'] : ['wasm'];
+  const providers = quality === "high" ? ["webgpu", "wasm"] : ["wasm"];
   session = await ort.InferenceSession.create(modelPath, {
-    executionProviders: providers
+    executionProviders: providers,
   });
 }
 
@@ -244,7 +247,7 @@ async function inpaint(
   image: ImageData,
   mask: ImageData
 ): Promise<InpaintingResult> {
-  if (!session) await initializeLaMa('balanced');
+  if (!session) await initializeLaMa("balanced");
 
   // 512x512にリサイズ
   const [imageInput, maskInput] = preprocessForLaMa(image, mask);
@@ -253,12 +256,16 @@ async function inpaint(
   const startTime = performance.now();
   const results = await session.run({
     image: imageInput,
-    mask: maskInput
+    mask: maskInput,
   });
   const processingTime = performance.now() - startTime;
 
   // 元のサイズに戻す
-  const inpaintedImage = postprocessLaMa(results.output, image.width, image.height);
+  const inpaintedImage = postprocessLaMa(
+    results.output,
+    image.width,
+    image.height
+  );
 
   return { inpaintedImage, processingTime };
 }

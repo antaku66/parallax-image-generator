@@ -10,9 +10,17 @@
 
 ```typescript
 // src/services/pipeline/PipelineManager.ts
-import { wrap } from 'comlink';
+import { wrap } from "comlink";
 
-type ProcessingStep = 'idle' | 'preprocessing' | 'segmentation' | 'depth' | 'inpainting' | 'composing' | 'complete' | 'error';
+type ProcessingStep =
+  | "idle"
+  | "preprocessing"
+  | "segmentation"
+  | "depth"
+  | "inpainting"
+  | "composing"
+  | "complete"
+  | "error";
 
 interface PipelineState {
   step: ProcessingStep;
@@ -33,50 +41,61 @@ class PipelineManager {
 
   private initializeWorkers(): void {
     this.segmentationWorker = new Worker(
-      new URL('../workers/segmentation.worker.ts', import.meta.url),
-      { type: 'module' }
+      new URL("../workers/segmentation.worker.ts", import.meta.url),
+      { type: "module" }
     );
     this.depthWorker = new Worker(
-      new URL('../workers/depth.worker.ts', import.meta.url),
-      { type: 'module' }
+      new URL("../workers/depth.worker.ts", import.meta.url),
+      { type: "module" }
     );
     this.inpaintingWorker = new Worker(
-      new URL('../workers/inpainting.worker.ts', import.meta.url),
-      { type: 'module' }
+      new URL("../workers/inpainting.worker.ts", import.meta.url),
+      { type: "module" }
     );
   }
 
   async process(imageData: ImageData): Promise<ProcessedLayers> {
     try {
       // Step 1: 前処理
-      this.updateState('preprocessing', 10);
+      this.updateState("preprocessing", 10);
       const preprocessed = await this.preprocess(imageData);
 
       // Step 2 & 3: セグメンテーションと深度推定を並列実行
-      this.updateState('segmentation', 20);
+      this.updateState("segmentation", 20);
       const [segmentation, depth] = await Promise.all([
         this.runSegmentation(preprocessed),
-        this.runDepthEstimation(preprocessed)
+        this.runDepthEstimation(preprocessed),
       ]);
 
       // Step 4: インペインティング
-      this.updateState('inpainting', 60);
-      const inpainted = await this.runInpainting(preprocessed, segmentation.foregroundMask);
+      this.updateState("inpainting", 60);
+      const inpainted = await this.runInpainting(
+        preprocessed,
+        segmentation.foregroundMask
+      );
 
       // Step 5: 合成
-      this.updateState('composing', 90);
-      const layers = this.composeLayers(preprocessed, segmentation, inpainted, depth);
+      this.updateState("composing", 90);
+      const layers = this.composeLayers(
+        preprocessed,
+        segmentation,
+        inpainted,
+        depth
+      );
 
-      this.updateState('complete', 100);
+      this.updateState("complete", 100);
       return layers;
-
     } catch (error) {
-      this.updateState('error', 0, error as Error);
+      this.updateState("error", 0, error as Error);
       throw error;
     }
   }
 
-  private updateState(step: ProcessingStep, progress: number, error?: Error): void {
+  private updateState(
+    step: ProcessingStep,
+    progress: number,
+    error?: Error
+  ): void {
     this.onStateChange({ step, progress, error: error || null });
   }
 
@@ -94,8 +113,8 @@ class PipelineManager {
 
 ```typescript
 // src/store/useAppStore.ts
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 interface ProcessedLayers {
   foreground: ImageData;
@@ -118,7 +137,7 @@ interface AppState {
 
   // ビューア設定
   parallaxIntensity: number;
-  qualityMode: 'high' | 'balanced' | 'fast';
+  qualityMode: "high" | "balanced" | "fast";
   isFullscreen: boolean;
 
   // アクション
@@ -127,7 +146,7 @@ interface AppState {
   updateProcessingState: (step: ProcessingStep, progress: number) => void;
   setError: (error: Error | null) => void;
   setParallaxIntensity: (value: number) => void;
-  setQualityMode: (mode: 'high' | 'balanced' | 'fast') => void;
+  setQualityMode: (mode: "high" | "balanced" | "fast") => void;
   toggleFullscreen: () => void;
   reset: () => void;
 }
@@ -137,53 +156,61 @@ export const useAppStore = create<AppState>()(
     // 初期状態
     originalImage: null,
     processedLayers: null,
-    processingStep: 'idle',
+    processingStep: "idle",
     processingProgress: 0,
     error: null,
     parallaxIntensity: 0.5,
-    qualityMode: 'balanced',
+    qualityMode: "balanced",
     isFullscreen: false,
 
     // アクション
-    setOriginalImage: (image) => set((state) => {
-      state.originalImage = image;
-      state.processedLayers = null;
-      state.processingStep = 'idle';
-    }),
+    setOriginalImage: (image) =>
+      set((state) => {
+        state.originalImage = image;
+        state.processedLayers = null;
+        state.processingStep = "idle";
+      }),
 
-    setProcessedLayers: (layers) => set((state) => {
-      state.processedLayers = layers;
-    }),
+    setProcessedLayers: (layers) =>
+      set((state) => {
+        state.processedLayers = layers;
+      }),
 
-    updateProcessingState: (step, progress) => set((state) => {
-      state.processingStep = step;
-      state.processingProgress = progress;
-    }),
+    updateProcessingState: (step, progress) =>
+      set((state) => {
+        state.processingStep = step;
+        state.processingProgress = progress;
+      }),
 
-    setError: (error) => set((state) => {
-      state.error = error;
-      state.processingStep = 'error';
-    }),
+    setError: (error) =>
+      set((state) => {
+        state.error = error;
+        state.processingStep = "error";
+      }),
 
-    setParallaxIntensity: (value) => set((state) => {
-      state.parallaxIntensity = value;
-    }),
+    setParallaxIntensity: (value) =>
+      set((state) => {
+        state.parallaxIntensity = value;
+      }),
 
-    setQualityMode: (mode) => set((state) => {
-      state.qualityMode = mode;
-    }),
+    setQualityMode: (mode) =>
+      set((state) => {
+        state.qualityMode = mode;
+      }),
 
-    toggleFullscreen: () => set((state) => {
-      state.isFullscreen = !state.isFullscreen;
-    }),
+    toggleFullscreen: () =>
+      set((state) => {
+        state.isFullscreen = !state.isFullscreen;
+      }),
 
-    reset: () => set((state) => {
-      state.originalImage = null;
-      state.processedLayers = null;
-      state.processingStep = 'idle';
-      state.processingProgress = 0;
-      state.error = null;
-    })
+    reset: () =>
+      set((state) => {
+        state.originalImage = null;
+        state.processedLayers = null;
+        state.processingStep = "idle";
+        state.processingProgress = 0;
+        state.error = null;
+      }),
   }))
 );
 ```
@@ -364,11 +391,11 @@ export function ImageUploader({ onImageProcessed }: ImageUploaderProps) {
 
 ### 2.1 品質モード自動選択
 
-| モード | インペインティング | 画像サイズ | 対象デバイス | 処理時間目安 |
-| --- | --- | --- | --- | --- |
-| High | LaMa FP32 (WebGPU) | 512x512 | デスクトップ (8GB+) | ~3秒 |
-| Balanced | LaMa INT8 (WASM) | 384x384 | タブレット/高性能スマホ | ~8秒 |
-| Fast | Canvas API簡易補完 | 256x256 | 低スペックデバイス | ~2秒 |
+| モード   | インペインティング | 画像サイズ | 対象デバイス            | 処理時間目安 |
+| -------- | ------------------ | ---------- | ----------------------- | ------------ |
+| High     | LaMa FP32 (WebGPU) | 512x512    | デスクトップ (8GB+)     | ~3秒         |
+| Balanced | LaMa INT8 (WASM)   | 384x384    | タブレット/高性能スマホ | ~8秒         |
+| Fast     | Canvas API簡易補完 | 256x256    | 低スペックデバイス      | ~2秒         |
 
 ### 2.2 デバイス検出ロジック
 
@@ -376,14 +403,14 @@ export function ImageUploader({ onImageProcessed }: ImageUploaderProps) {
 // src/utils/deviceDetection.ts
 interface DeviceCapabilities {
   hasWebGPU: boolean;
-  deviceMemory: number;      // GB (navigator.deviceMemory)
+  deviceMemory: number; // GB (navigator.deviceMemory)
   hardwareConcurrency: number; // CPUコア数
   isMobile: boolean;
   isLowEnd: boolean;
 }
 
 async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
-  const hasWebGPU = 'gpu' in navigator && await checkWebGPUSupport();
+  const hasWebGPU = "gpu" in navigator && (await checkWebGPUSupport());
   const deviceMemory = (navigator as any).deviceMemory || 4;
   const hardwareConcurrency = navigator.hardwareConcurrency || 4;
   const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
@@ -392,13 +419,15 @@ async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
   return { hasWebGPU, deviceMemory, hardwareConcurrency, isMobile, isLowEnd };
 }
 
-function determineQualityMode(caps: DeviceCapabilities): 'high' | 'balanced' | 'fast' {
+function determineQualityMode(
+  caps: DeviceCapabilities
+): "high" | "balanced" | "fast" {
   if (caps.hasWebGPU && caps.deviceMemory >= 8 && !caps.isMobile) {
-    return 'high';
+    return "high";
   } else if (caps.deviceMemory >= 4 && !caps.isLowEnd) {
-    return 'balanced';
+    return "balanced";
   } else {
-    return 'fast';
+    return "fast";
   }
 }
 ```
@@ -407,10 +436,10 @@ function determineQualityMode(caps: DeviceCapabilities): 'high' | 'balanced' | '
 
 ```typescript
 // src/services/models/ModelCache.ts
-import { openDB, IDBPDatabase } from 'idb';
+import { openDB, IDBPDatabase } from "idb";
 
-const DB_NAME = 'parallax-models';
-const STORE_NAME = 'models';
+const DB_NAME = "parallax-models";
+const STORE_NAME = "models";
 
 class ModelCache {
   private db: IDBPDatabase | null = null;
@@ -419,7 +448,7 @@ class ModelCache {
     this.db = await openDB(DB_NAME, 1, {
       upgrade(db) {
         db.createObjectStore(STORE_NAME);
-      }
+      },
     });
   }
 
@@ -454,7 +483,7 @@ async function downloadModelWithProgress(
   onProgress: (loaded: number, total: number) => void
 ): Promise<ArrayBuffer> {
   const response = await fetch(url);
-  const contentLength = Number(response.headers.get('Content-Length'));
+  const contentLength = Number(response.headers.get("Content-Length"));
   const reader = response.body!.getReader();
 
   const chunks: Uint8Array[] = [];
@@ -484,12 +513,12 @@ async function downloadModelWithProgress(
 
 ### 2.5 最適化テクニック一覧
 
-| カテゴリ | 手法 | 効果 |
-| --- | --- | --- |
-| **メモリ** | Transferable Objects | Workerへのデータ転送を高速化（コピーなし） |
-| **メモリ** | 中間結果の即時解放 | メモリ使用量を削減 |
-| **ネットワーク** | IndexedDBキャッシュ | 再訪問時のロード時間をゼロに |
-| **ネットワーク** | 分割ダウンロード | 進捗表示改善、中断再開対応 |
-| **描画** | GPU Compositing | CSS transform使用でGPU活用 |
-| **描画** | OffscreenCanvas | Worker内でCanvas描画（実験的） |
-| **処理** | 並列Worker実行 | セグメンテーションと深度推定を同時実行 |
+| カテゴリ         | 手法                 | 効果                                       |
+| ---------------- | -------------------- | ------------------------------------------ |
+| **メモリ**       | Transferable Objects | Workerへのデータ転送を高速化（コピーなし） |
+| **メモリ**       | 中間結果の即時解放   | メモリ使用量を削減                         |
+| **ネットワーク** | IndexedDBキャッシュ  | 再訪問時のロード時間をゼロに               |
+| **ネットワーク** | 分割ダウンロード     | 進捗表示改善、中断再開対応                 |
+| **描画**         | GPU Compositing      | CSS transform使用でGPU活用                 |
+| **描画**         | OffscreenCanvas      | Worker内でCanvas描画（実験的）             |
+| **処理**         | 並列Worker実行       | セグメンテーションと深度推定を同時実行     |
