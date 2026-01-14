@@ -4,14 +4,27 @@ interface ButtonProps {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  variant?: "primary" | "secondary";
 }
 
-export function Button({ children, onClick, disabled }: ButtonProps) {
+export function Button({
+  children,
+  onClick,
+  disabled,
+  variant = "primary",
+}: ButtonProps) {
+  const baseStyles =
+    "px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  const variantStyles = {
+    primary: "bg-blue-600 text-white hover:bg-blue-700",
+    secondary: "bg-gray-700 text-gray-200 hover:bg-gray-600",
+  };
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      className={`${baseStyles} ${variantStyles[variant]}`}
     >
       {children}
     </button>
