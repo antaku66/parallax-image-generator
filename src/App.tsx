@@ -1,55 +1,31 @@
-import { Button } from "./components/ui/Button";
-import { Slider } from "./components/ui/Slider";
-import { Modal } from "./components/ui/Modal";
-import { Spinner } from "./components/ui/Spinner";
-import { useState } from "react";
+import { useAppStore } from "./store/useAppStore";
+import { ImageUploader } from "./components/upload/ImageUploader";
+import { ImagePreview } from "./components/upload/ImagePreview";
 
 function App() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sliderValue, setSliderValue] = useState(50);
+  const { originalImage, error } = useAppStore();
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <h1 className="text-3xl font-bold mb-8">Parallax - 視差画像作成</h1>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <header className="border-b border-gray-800 p-4">
+        <h1 className="text-2xl font-bold text-center">
+          Parallax - 視差画像作成
+        </h1>
+      </header>
 
-      <div className="space-y-8">
-        {/* Button */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Button</h2>
-          <div className="flex gap-4">
-            <Button onClick={() => alert("クリック")}>ボタン</Button>
-            <Button disabled>無効なボタン</Button>
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
+        {error && (
+          <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
+            {error.message}
           </div>
-        </section>
+        )}
 
-        {/* Slider */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Slider</h2>
-          <Slider
-            value={sliderValue}
-            onChange={setSliderValue}
-            min={0}
-            max={100}
-          />
-          <p className="mt-2">値: {sliderValue}</p>
-        </section>
+        {originalImage ? <ImagePreview /> : <ImageUploader />}
+      </main>
 
-        {/* Modal */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Modal</h2>
-          <Button onClick={() => setIsModalOpen(true)}>モーダルを開く</Button>
-          <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-            <h3 className="text-lg font-semibold mb-4">モーダルタイトル</h3>
-            <p>モーダルの内容がここに表示されます。</p>
-          </Modal>
-        </section>
-
-        {/* Spinner */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Spinner</h2>
-          <Spinner />
-        </section>
-      </div>
+      <footer className="border-t border-gray-800 p-4 text-center text-sm text-gray-500">
+        すべての処理はブラウザ内で完結します
+      </footer>
     </div>
   );
 }

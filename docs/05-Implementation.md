@@ -1,23 +1,24 @@
 # 実装計画
 
-最終更新日: 2026-01-07
+最終更新日: 2026-01-13
 
 ## 1. 実装フェーズ
 
-### Phase 1: プロジェクト基盤
+### Phase 1: プロジェクト基盤 ✅
 
 - Vite + React + TypeScript初期化
 - TailwindCSS v4セットアップ
 - ESLint設定
 - 基本ディレクトリ構造
-- 共通UIコンポーネント（Button, Slider, Modal）
+- 共通UIコンポーネント（Button, Slider, Modal, Spinner）
 
-### Phase 2: 画像アップロード
+### Phase 2: 画像アップロード ✅
 
 - ImageUploaderコンポーネント
 - DropZone（ドラッグ&ドロップ）
-- 画像リサイズ・正規化ユーティリティ
-- Zustand store基盤
+- ImagePreview（プレビュー表示）
+- 画像リサイズ・正規化ユーティリティ（ImageUtils, CanvasUtils, ExifProcessor）
+- Zustand store基盤（useAppStore）
 
 ### Phase 3: セグメンテーション
 
@@ -66,17 +67,23 @@
 
 ## 2. 重要ファイル一覧
 
-| ファイルパス                             | 責務                             |
-| ---------------------------------------- | -------------------------------- |
-| src/services/pipeline/PipelineManager.ts | パイプラインオーケストレーション |
-| src/workers/inpainting.worker.ts         | LaMa推論（最重量処理）           |
-| src/workers/segmentation.worker.ts       | MediaPipeセグメンテーション      |
-| src/workers/depth.worker.ts              | MiDaS深度推定                    |
-| src/components/viewer/ThreeScene.tsx     | 視差レンダリング                 |
-| src/services/models/ModelManager.ts      | モデル管理・キャッシュ           |
-| src/store/useAppStore.ts                 | グローバル状態管理               |
-| src/hooks/useImageProcessor.ts           | 画像処理フック                   |
-| src/utils/deviceDetection.ts             | デバイス性能検出                 |
+| ファイルパス                             | 責務                             | 実装状態 |
+| ---------------------------------------- | -------------------------------- | -------- |
+| src/store/useAppStore.ts                 | グローバル状態管理               | ✅       |
+| src/components/upload/ImageUploader.tsx  | 画像アップロードUI               | ✅       |
+| src/components/upload/DropZone.tsx       | ドラッグ&ドロップ                | ✅       |
+| src/components/upload/ImagePreview.tsx   | アップロード画像プレビュー       | ✅       |
+| src/services/image/ImageUtils.ts         | 画像処理（リサイズ等）           | ✅       |
+| src/services/image/CanvasUtils.ts        | Canvas操作ユーティリティ         | ✅       |
+| src/services/image/ExifProcessor.ts      | EXIF回転補正                     | ✅       |
+| src/services/pipeline/PipelineManager.ts | パイプラインオーケストレーション | -        |
+| src/workers/inpainting.worker.ts         | LaMa推論（最重量処理）           | -        |
+| src/workers/segmentation.worker.ts       | MediaPipeセグメンテーション      | -        |
+| src/workers/depth.worker.ts              | MiDaS深度推定                    | -        |
+| src/components/viewer/ThreeScene.tsx     | 視差レンダリング                 | -        |
+| src/services/models/ModelManager.ts      | モデル管理・キャッシュ           | -        |
+| src/hooks/useImageProcessor.ts           | 画像処理フック                   | -        |
+| src/utils/deviceDetection.ts             | デバイス性能検出                 | -        |
 
 ---
 
