@@ -1,6 +1,6 @@
 # 実装計画
 
-最終更新日: 2026-01-13
+最終更新日: 2026-01-20
 
 ## 1. 実装フェーズ
 
@@ -22,10 +22,22 @@
 
 ### Phase 3: セグメンテーション
 
-- MediaPipe tasks-vision統合
-- segmentation.worker.ts実装
-- Comlink設定
-- マスクプレビュー表示
+SAM 2 (Segment Anything Model 2) を使用したインスタンスセグメンテーション。
+
+詳細は [06-Segmentation-Detail.md](./06-Segmentation-Detail.md) を参照。
+
+**サブフェーズ**:
+
+| # | サブフェーズ | 内容 |
+| --- | --- | --- |
+| 3.1 | 基盤インフラストラクチャ | ONNX Runtime Web環境構築、型定義 |
+| 3.2 | モデル管理システム | IndexedDBキャッシュ、進捗付きダウンロード |
+| 3.3 | SAM 2 Encoder統合 | 画像埋め込み生成、Web Worker |
+| 3.4 | SAM 2 Decoder統合 | マスク生成、後処理 |
+| 3.5 | AutoMaskGenerator | グリッドポイント、NMS、バッチ推論 |
+| 3.6 | インスタンスマージと背景分離 | 重複統合、背景判定 |
+| 3.7 | UI統合 | プレビュー、進捗UI、状態管理 |
+| 3.8 | パフォーマンス最適化 | 品質モード、Transferable Objects |
 
 ### Phase 4: 深度推定
 
@@ -78,7 +90,7 @@
 | src/services/image/ExifProcessor.ts      | EXIF回転補正                     | ✅       |
 | src/services/pipeline/PipelineManager.ts | パイプラインオーケストレーション | -        |
 | src/workers/inpainting.worker.ts         | LaMa推論（最重量処理）           | -        |
-| src/workers/segmentation.worker.ts       | MediaPipeセグメンテーション      | -        |
+| src/workers/segmentation.worker.ts       | SAM 2セグメンテーション          | -        |
 | src/workers/depth.worker.ts              | MiDaS深度推定                    | -        |
 | src/components/viewer/ThreeScene.tsx     | 視差レンダリング                 | -        |
 | src/services/models/ModelManager.ts      | モデル管理・キャッシュ           | -        |

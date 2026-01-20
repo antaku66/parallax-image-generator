@@ -1,6 +1,6 @@
 # 処理パイプライン詳細
 
-最終更新日: 2026-01-07
+最終更新日: 2026-01-20
 
 ## 1. パイプライン概要図
 
@@ -8,9 +8,9 @@
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
     A["画像アップロード"] --> B["画像前処理"]
-    B --> C["セグメンテーション<br/>(MediaPipe)"]
+    B --> C["セグメンテーション<br/>(SAM 2)"]
     B --> D["深度推定<br/>(MiDaS)"]
-    C --> E["人物マスク"]
+    C --> E["インスタンスマスク<br/>(前景/背景分離)"]
     D --> F["深度マップ"]
     E --> G["インペインティング<br/>(LaMa)"]
     G --> H["補完済み背景"]
@@ -56,12 +56,19 @@ interface ProcessedImage {
 
 ## 3. Step 2: セグメンテーション
 
-**責務**: 画像から人物・物体を切り出すマスクを生成
+**責務**: 画像から人物・物体を切り出し、インスタンスごとにマスクを生成
 
-**使用モデル**: MediaPipe Image Segmenter
+**使用モデル**: SAM 2 (Segment Anything Model 2)
 
-- モデルサイズ: 454KB (selfie_multiclass_256x256.tflite)
-- 推論時間: ~30ms (デスクトップ) / ~100ms (モバイル)
+- Encoderモデルサイズ: ~100MB
+- Decoderモデルサイズ: ~20MB
+- 推論時間: ~3秒 (デスクトップ WebGPU) / ~8秒 (モバイル WASM)
+- ライセンス: Apache 2.0
+
+**モデル選定理由**:
+
+- インスタンスセグメンテーション対応（複数人を個別セグメントに分離可能）
+- MediaPipeはセマンティックセグメンテーションのみで複数人の個別分離不可
 
 **入力**:
 
@@ -69,53 +76,56 @@ interface ProcessedImage {
 
 **処理内容**:
 
-1. MediaPipe Image Segmenterの初期化
-2. 画像の前処理（正規化）
-3. セグメンテーション推論
-4. マスクの後処理（エッジスムージング）
+1. SAM 2 Encoderで画像埋め込み生成（1024x1024にリサイズ）
+2. グリッドポイントベースの自動マスク生成
+3. NMS（Non-Maximum Suppression）で重複除去
+4. インスタンスマージと背景分離
+5. マスクの後処理（元サイズにリサイズ）
 
 **出力**:
 
 ```typescript
+interface Segment {
+  id: number;
+  mask: Uint8Array;
+  bbox: BoundingBox;
+  area: number;
+  iouScore: number;
+  stabilityScore: number;
+  isBackground: boolean;
+}
+
 interface SegmentationResult {
-  foregroundMask: ImageData; // 前景（人物）マスク（白=前景）
-  backgroundMask: ImageData; // 背景マスク（白=背景）
-  confidence: Float32Array; // ピクセルごとの信頼度
+  segments: Segment[];
+  backgroundMask: Uint8Array;
+  width: number;
+  height: number;
+  originalWidth: number;
+  originalHeight: number;
+  processingTime: number;
 }
 ```
 
 **Web Worker**: `src/workers/segmentation.worker.ts`
 
-**コード例**:
+**処理フロー**:
 
-```typescript
-// segmentation.worker.ts
-import { ImageSegmenter, FilesetResolver } from "@mediapipe/tasks-vision";
-
-let segmenter: ImageSegmenter | null = null;
-
-async function initializeSegmenter(): Promise<void> {
-  const vision = await FilesetResolver.forVisionTasks(
-    "/models/segmentation/wasm"
-  );
-  segmenter = await ImageSegmenter.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath: "/models/segmentation/selfie_multiclass_256x256.tflite",
-      delegate: "GPU",
-    },
-    outputCategoryMask: true,
-    outputConfidenceMasks: true,
-  });
-}
-
-async function segment(imageData: ImageData): Promise<SegmentationResult> {
-  if (!segmenter) await initializeSegmenter();
-
-  const result = segmenter.segment(imageData);
-  // マスク処理...
-  return { foregroundMask, backgroundMask, confidence };
-}
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+    A["ImageData"] --> B["1024x1024リサイズ"]
+    B --> C["SAM 2 Encoder"]
+    C --> D["画像埋め込み"]
+    D --> E["グリッドポイント生成<br/>(32x32 = 1024点)"]
+    E --> F["SAM 2 Decoder<br/>(バッチ処理)"]
+    F --> G["マスク候補"]
+    G --> H["NMS + フィルタリング"]
+    H --> I["インスタンスマージ"]
+    I --> J["背景分離"]
+    J --> K["SegmentationResult"]
 ```
+
+詳細は [06-Segmentation-Detail.md](./06-Segmentation-Detail.md) を参照。
 
 ---
 

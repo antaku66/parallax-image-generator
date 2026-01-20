@@ -1,6 +1,6 @@
 # プロジェクト構造
 
-最終更新日: 2026-01-07
+最終更新日: 2026-01-20
 
 ## 1. ディレクトリ構成
 
@@ -43,7 +43,7 @@ parallax/
 │   │   ├── usePointerTracking.ts  # マウス/タッチ追従
 │   │   └── useDeviceCapabilities.ts # デバイス性能検出
 │   ├── workers/
-│   │   ├── segmentation.worker.ts # MediaPipeセグメンテーション
+│   │   ├── segmentation.worker.ts # SAM 2セグメンテーション
 │   │   ├── depth.worker.ts        # MiDaS深度推定
 │   │   ├── inpainting.worker.ts   # LaMaインペインティング
 │   │   └── shared/
@@ -51,7 +51,6 @@ parallax/
 │   ├── services/
 │   │   ├── pipeline/
 │   │   │   ├── PipelineManager.ts # パイプライン全体制御
-│   │   │   ├── SegmentationService.ts
 │   │   │   ├── DepthEstimationService.ts
 │   │   │   ├── InpaintingService.ts
 │   │   │   └── ParallaxComposer.ts # 視差レイヤー合成
@@ -59,6 +58,16 @@ parallax/
 │   │   │   ├── ModelManager.ts    # モデルロード・キャッシュ
 │   │   │   ├── ModelCache.ts      # IndexedDBキャッシュ
 │   │   │   └── ModelDownloader.ts # 分割ダウンロード
+│   │   ├── segmentation/          # SAM 2セグメンテーション
+│   │   │   ├── Sam2Encoder.ts     # SAM 2 Encoder
+│   │   │   ├── Sam2Decoder.ts     # SAM 2 Decoder
+│   │   │   ├── AutoMaskGenerator.ts # 自動マスク生成
+│   │   │   ├── imagePreprocessor.ts # 画像前処理
+│   │   │   ├── maskPostprocessor.ts # マスク後処理
+│   │   │   ├── nms.ts             # Non-Maximum Suppression
+│   │   │   ├── gridPointGenerator.ts # グリッドポイント生成
+│   │   │   ├── instanceMerger.ts  # インスタンス統合
+│   │   │   └── backgroundDetector.ts # 背景判定
 │   │   └── image/
 │   │       ├── ImageUtils.ts      # 画像変換・リサイズ
 │   │       ├── CanvasUtils.ts     # Canvas操作
@@ -70,12 +79,15 @@ parallax/
 │   │       ├── processingSlice.ts # 処理状態
 │   │       └── viewerSlice.ts     # ビューア設定
 │   ├── types/
+│   │   ├── index.ts               # 共通型定義
+│   │   ├── segmentation.ts        # セグメンテーション型
 │   │   ├── image.ts               # 画像関連型
 │   │   ├── pipeline.ts            # パイプライン型
 │   │   ├── viewer.ts              # ビューア型
 │   │   └── models.ts              # モデル関連型
 │   ├── utils/
 │   │   ├── deviceDetection.ts     # デバイス検出
+│   │   ├── webgpuDetection.ts     # WebGPU対応検出
 │   │   ├── tensorUtils.ts         # テンソル操作
 │   │   └── validation.ts          # 入力バリデーション
 │   ├── constants/
@@ -88,7 +100,8 @@ parallax/
 │   ├── 02-Project-Structure.md    # プロジェクト構造（本ファイル）
 │   ├── 03-Pipeline.md             # パイプライン詳細
 │   ├── 04-Components.md           # コンポーネント実装
-│   └── 05-Implementation.md       # 実装計画
+│   ├── 05-Implementation.md       # 実装計画
+│   └── 06-Segmentation-Detail.md  # セグメンテーション詳細実装計画
 ├── index.html
 ├── package.json
 ├── vite.config.ts
@@ -113,7 +126,6 @@ parallax/
     "@react-three/fiber": "^9.0.0",
     "@react-three/drei": "^9.120.0",
     "onnxruntime-web": "^1.20.0",
-    "@mediapipe/tasks-vision": "^0.10.22",
     "zustand": "^5.0.0",
     "comlink": "^4.4.1",
     "idb": "^8.0.0"
@@ -146,16 +158,15 @@ parallax/
 
 ### 2.3 パッケージ役割一覧
 
-| パッケージ              | 役割                       |
-| ----------------------- | -------------------------- |
-| react, react-dom        | UIフレームワーク           |
-| three                   | 3Dレンダリングエンジン     |
-| @react-three/fiber      | React-Three.js統合         |
-| @react-three/drei       | Three.jsヘルパー           |
-| onnxruntime-web         | ONNX ML推論（MiDaS, LaMa） |
-| @mediapipe/tasks-vision | セグメンテーション         |
-| zustand                 | 状態管理                   |
-| comlink                 | Web Worker通信簡素化       |
-| idb                     | IndexedDB Promise API      |
-| vite                    | ビルドツール               |
-| tailwindcss             | CSSフレームワーク          |
+| パッケージ | 役割 |
+| --- | --- |
+| react, react-dom | UIフレームワーク |
+| three | 3Dレンダリングエンジン |
+| @react-three/fiber | React-Three.js統合 |
+| @react-three/drei | Three.jsヘルパー |
+| onnxruntime-web | ONNX ML推論（SAM 2, MiDaS, LaMa） |
+| zustand | 状態管理 |
+| comlink | Web Worker通信簡素化 |
+| idb | IndexedDB Promise API |
+| vite | ビルドツール |
+| tailwindcss | CSSフレームワーク |
