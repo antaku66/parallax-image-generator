@@ -12,23 +12,23 @@ export const APP_CONFIG = {
   MAX_FILE_SIZE: 20 * 1024 * 1024,
 } as const;
 
-/** SAM2 モデル設定 */
-export const SAM2_CONFIG = {
+/** MobileSAM モデル設定 */
+export const MOBILESAM_CONFIG = {
   // モデルの入力サイズ（固定）
   INPUT_SIZE: 1024,
-  // Encoder モデル情報
+  // Encoder モデル情報（TinyViT）
   ENCODER: {
     MODEL_URL:
-      "https://huggingface.co/g-ronimo/sam2-tiny/resolve/main/sam2_hiera_tiny_encoder.onnx",
-    MODEL_NAME: "sam2_hiera_tiny_encoder.onnx",
-    EXPECTED_SIZE_MB: 148,
+      "https://huggingface.co/Acly/MobileSAM/resolve/main/mobile_sam_image_encoder.onnx",
+    MODEL_NAME: "mobile_sam_image_encoder.onnx",
+    EXPECTED_SIZE_MB: 28,
   },
-  // Decoder モデル情報
+  // Decoder モデル情報（複数マスク出力でAutoMask用）
   DECODER: {
     MODEL_URL:
-      "https://huggingface.co/g-ronimo/sam2-tiny/resolve/main/sam2_hiera_tiny_decoder.onnx",
-    MODEL_NAME: "sam2_hiera_tiny_decoder.onnx",
-    EXPECTED_SIZE_MB: 20,
+      "https://huggingface.co/Acly/MobileSAM/resolve/main/sam_mask_decoder_multi.onnx",
+    MODEL_NAME: "sam_mask_decoder_multi.onnx",
+    EXPECTED_SIZE_MB: 17,
   },
   // 画像正規化パラメータ（ImageNet 標準）
   NORMALIZATION: {
