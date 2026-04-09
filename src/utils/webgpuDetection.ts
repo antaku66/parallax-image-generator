@@ -87,10 +87,7 @@ export interface DeviceCapabilities {
 
 /** デバイス性能を総合的に検出 */
 export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
-  const [webgpuInfo, recommendedProvider] = await Promise.all([
-    detectWebGPUSupport(),
-    getRecommendedExecutionProvider(),
-  ]);
+  const webgpuInfo = await detectWebGPUSupport();
 
   const isMobile =
     typeof navigator !== "undefined" &&
@@ -100,7 +97,7 @@ export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
     webgpuSupported: webgpuInfo.supported,
     sharedArrayBufferAvailable: isSharedArrayBufferAvailable(),
     hardwareConcurrency: getHardwareConcurrency(),
-    recommendedProvider,
+    recommendedProvider: webgpuInfo.supported ? "webgpu" : "wasm",
     isMobile,
   };
 }

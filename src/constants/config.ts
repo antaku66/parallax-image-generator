@@ -21,7 +21,7 @@ export const SAM2_CONFIG = {
     MODEL_URL:
       "https://huggingface.co/g-ronimo/sam2-tiny/resolve/main/sam2_hiera_tiny_encoder.onnx",
     MODEL_NAME: "sam2_hiera_tiny_encoder.onnx",
-    EXPECTED_SIZE_MB: 100,
+    EXPECTED_SIZE_MB: 148,
   },
   // Decoder モデル情報
   DECODER: {
