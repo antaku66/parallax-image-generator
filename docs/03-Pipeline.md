@@ -126,7 +126,6 @@ flowchart TD
     J --> K["SegmentationResult"]
 ```
 
-詳細は [06-Segmentation-Detail.md](./06-Segmentation-Detail.md) を参照。
 
 ---
 

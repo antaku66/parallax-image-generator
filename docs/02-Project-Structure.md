@@ -1,6 +1,6 @@
 # プロジェクト構造
 
-最終更新日: 2026-04-03
+最終更新日: 2026-04-09
 
 ## 1. ディレクトリ構成
 
@@ -86,8 +86,7 @@ parallax/
 │   │   ├── viewer.ts              # ビューア型
 │   │   └── models.ts              # モデル関連型
 │   ├── utils/
-│   │   ├── deviceDetection.ts     # デバイス検出
-│   │   ├── webgpuDetection.ts     # WebGPU対応検出
+│   │   ├── webgpuDetection.ts     # WebGPU/デバイス性能検出
 │   │   ├── tensorUtils.ts         # テンソル操作
 │   │   └── validation.ts          # 入力バリデーション
 │   ├── constants/
@@ -101,7 +100,6 @@ parallax/
 │   ├── 03-Pipeline.md             # パイプライン詳細
 │   ├── 04-Components.md           # コンポーネント実装
 │   ├── 05-Implementation.md       # 実装計画
-│   └── 06-Segmentation-Detail.md  # セグメンテーション詳細実装計画
 ├── index.html
 ├── package.json
 ├── vite.config.ts
@@ -151,7 +149,8 @@ parallax/
     "typescript-eslint": "^8.18.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
-    "vite-plugin-comlink": "^5.0.0"
+    "vite-plugin-static-copy": "^2.3.0",
+    "@webgpu/types": "^0.1.69"
   }
 }
 ```

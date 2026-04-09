@@ -1,6 +1,6 @@
 # コンポーネント実装
 
-最終更新日: 2026-01-07
+最終更新日: 2026-04-09
 
 ## 1. 主要コンポーネント詳細
 
@@ -400,31 +400,41 @@ export function ImageUploader({ onImageProcessed }: ImageUploaderProps) {
 ### 2.2 デバイス検出ロジック
 
 ```typescript
-// src/utils/deviceDetection.ts
+// src/utils/webgpuDetection.ts
 interface DeviceCapabilities {
-  hasWebGPU: boolean;
-  deviceMemory: number; // GB (navigator.deviceMemory)
-  hardwareConcurrency: number; // CPUコア数
+  webgpuSupported: boolean;
+  sharedArrayBufferAvailable: boolean;
+  hardwareConcurrency: number;
+  recommendedProvider: OnnxExecutionProvider;
   isMobile: boolean;
-  isLowEnd: boolean;
 }
 
 async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
-  const hasWebGPU = "gpu" in navigator && (await checkWebGPUSupport());
-  const deviceMemory = (navigator as any).deviceMemory || 4;
-  const hardwareConcurrency = navigator.hardwareConcurrency || 4;
-  const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
-  const isLowEnd = deviceMemory < 4 || hardwareConcurrency < 4;
+  const webgpuInfo = await detectWebGPUSupport();
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  return { hasWebGPU, deviceMemory, hardwareConcurrency, isMobile, isLowEnd };
+  return {
+    webgpuSupported: webgpuInfo.supported,
+    sharedArrayBufferAvailable: isSharedArrayBufferAvailable(),
+    hardwareConcurrency: getHardwareConcurrency(),
+    recommendedProvider: webgpuInfo.supported ? "webgpu" : "wasm",
+    isMobile,
+  };
 }
+```
 
+**品質モード自動選択**（Phase 3.8で実装予定）:
+
+```typescript
+// 未実装 — Phase 3.8 パフォーマンス最適化で webgpuDetection.ts に追加予定
 function determineQualityMode(
   caps: DeviceCapabilities
 ): "high" | "balanced" | "fast" {
-  if (caps.hasWebGPU && caps.deviceMemory >= 8 && !caps.isMobile) {
+  if (caps.webgpuSupported && !caps.isMobile) {
     return "high";
-  } else if (caps.deviceMemory >= 4 && !caps.isLowEnd) {
+  } else if (caps.hardwareConcurrency >= 4) {
     return "balanced";
   } else {
     return "fast";

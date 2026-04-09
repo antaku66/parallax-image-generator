@@ -1,6 +1,6 @@
 # 実装計画
 
-最終更新日: 2026-01-20
+最終更新日: 2026-04-09
 
 ## 1. 実装フェーズ
 
@@ -24,13 +24,11 @@
 
 MobileSAMを使用したインスタンスセグメンテーション。
 
-詳細は [06-Segmentation-Detail.md](./06-Segmentation-Detail.md) を参照。
-
 **サブフェーズ**:
 
 | # | サブフェーズ | 内容 |
 | --- | --- | --- |
-| 3.1 | 基盤インフラストラクチャ | ONNX Runtime Web環境構築、型定義 |
+| 3.1 | 基盤インフラストラクチャ ✅ | ONNX Runtime Web環境構築、型定義 |
 | 3.2 | モデル管理システム | IndexedDBキャッシュ、進捗付きダウンロード |
 | 3.3 | MobileSAM Encoder統合 | 画像埋め込み生成、Web Worker |
 | 3.4 | MobileSAM Decoder統合 | マスク生成、後処理 |
@@ -88,6 +86,9 @@ MobileSAMを使用したインスタンスセグメンテーション。
 | src/services/image/ImageUtils.ts         | 画像処理（リサイズ等）           | ✅       |
 | src/services/image/CanvasUtils.ts        | Canvas操作ユーティリティ         | ✅       |
 | src/services/image/ExifProcessor.ts      | EXIF回転補正                     | ✅       |
+| src/constants/config.ts                  | 設定定数                         | ✅       |
+| src/types/segmentation.ts               | セグメンテーション型定義         | ✅       |
+| src/utils/webgpuDetection.ts            | WebGPU/デバイス性能検出          | ✅       |
 | src/services/pipeline/PipelineManager.ts | パイプラインオーケストレーション | -        |
 | src/workers/inpainting.worker.ts         | LaMa推論（最重量処理）           | -        |
 | src/workers/segmentation.worker.ts       | MobileSAMセグメンテーション      | -        |
@@ -95,7 +96,7 @@ MobileSAMを使用したインスタンスセグメンテーション。
 | src/components/viewer/ThreeScene.tsx     | 視差レンダリング                 | -        |
 | src/services/models/ModelManager.ts      | モデル管理・キャッシュ           | -        |
 | src/hooks/useImageProcessor.ts           | 画像処理フック                   | -        |
-| src/utils/deviceDetection.ts             | デバイス性能検出                 | -        |
+| src/utils/webgpuDetection.ts             | WebGPU/デバイス性能検出          | ✅       |
 
 ---
 
