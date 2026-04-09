@@ -1,6 +1,6 @@
 # プロジェクト構造
 
-最終更新日: 2026-01-20
+最終更新日: 2026-04-03
 
 ## 1. ディレクトリ構成
 
@@ -8,7 +8,7 @@
 parallax/
 ├── public/
 │   └── models/                    # MLモデルファイル（遅延ロード）
-│       ├── segmentation/          # MediaPipe WASMファイル
+│       ├── segmentation/          # MobileSAM ONNXモデル
 │       ├── depth/                 # MiDaSモデル
 │       └── inpainting/            # LaMaモデル（FP32/INT8）
 ├── src/
@@ -43,7 +43,7 @@ parallax/
 │   │   ├── usePointerTracking.ts  # マウス/タッチ追従
 │   │   └── useDeviceCapabilities.ts # デバイス性能検出
 │   ├── workers/
-│   │   ├── segmentation.worker.ts # SAM 2セグメンテーション
+│   │   ├── segmentation.worker.ts # MobileSAMセグメンテーション
 │   │   ├── depth.worker.ts        # MiDaS深度推定
 │   │   ├── inpainting.worker.ts   # LaMaインペインティング
 │   │   └── shared/
@@ -58,9 +58,9 @@ parallax/
 │   │   │   ├── ModelManager.ts    # モデルロード・キャッシュ
 │   │   │   ├── ModelCache.ts      # IndexedDBキャッシュ
 │   │   │   └── ModelDownloader.ts # 分割ダウンロード
-│   │   ├── segmentation/          # SAM 2セグメンテーション
-│   │   │   ├── Sam2Encoder.ts     # SAM 2 Encoder
-│   │   │   ├── Sam2Decoder.ts     # SAM 2 Decoder
+│   │   ├── segmentation/          # MobileSAMセグメンテーション
+│   │   │   ├── MobileSamEncoder.ts # MobileSAM Encoder
+│   │   │   ├── MobileSamDecoder.ts # MobileSAM Decoder
 │   │   │   ├── AutoMaskGenerator.ts # 自動マスク生成
 │   │   │   ├── imagePreprocessor.ts # 画像前処理
 │   │   │   ├── maskPostprocessor.ts # マスク後処理
@@ -164,7 +164,7 @@ parallax/
 | three | 3Dレンダリングエンジン |
 | @react-three/fiber | React-Three.js統合 |
 | @react-three/drei | Three.jsヘルパー |
-| onnxruntime-web | ONNX ML推論（SAM 2, MiDaS, LaMa） |
+| onnxruntime-web | ONNX ML推論（MobileSAM, MiDaS, LaMa） |
 | zustand | 状態管理 |
 | comlink | Web Worker通信簡素化 |
 | idb | IndexedDB Promise API |

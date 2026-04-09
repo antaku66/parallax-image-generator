@@ -1,6 +1,6 @@
 # 処理パイプライン詳細
 
-最終更新日: 2026-01-20
+最終更新日: 2026-04-03
 
 ## 1. パイプライン概要図
 
@@ -8,7 +8,7 @@
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
     A["画像アップロード"] --> B["画像前処理"]
-    B --> C["セグメンテーション<br/>(SAM 2)"]
+    B --> C["セグメンテーション<br/>(MobileSAM)"]
     B --> D["深度推定<br/>(MiDaS)"]
     C --> E["インスタンスマスク<br/>(前景/背景分離)"]
     D --> F["深度マップ"]
@@ -58,17 +58,18 @@ interface ProcessedImage {
 
 **責務**: 画像から人物・物体を切り出し、インスタンスごとにマスクを生成
 
-**使用モデル**: SAM 2 (Segment Anything Model 2)
+**使用モデル**: MobileSAM
 
-- Encoderモデルサイズ: ~100MB
-- Decoderモデルサイズ: ~20MB
-- 推論時間: ~3秒 (デスクトップ WebGPU) / ~8秒 (モバイル WASM)
+- Encoderモデルサイズ: ~28MB（TinyViT）
+- Decoderモデルサイズ: ~16.5MB
+- 推論時間: ~1-3秒 (デスクトップ WebGPU) / ~3-5秒 (WASM)
 - ライセンス: Apache 2.0
 
 **モデル選定理由**:
 
 - インスタンスセグメンテーション対応（複数人を個別セグメントに分離可能）
 - MediaPipeはセマンティックセグメンテーションのみで複数人の個別分離不可
+- SAM 2はEncoder 148MBでブラウザ推論に45-90秒かかるため、軽量なMobileSAM（mIoU差2pt）を採用
 
 **入力**:
 
@@ -76,7 +77,7 @@ interface ProcessedImage {
 
 **処理内容**:
 
-1. SAM 2 Encoderで画像埋め込み生成（1024x1024にリサイズ）
+1. MobileSAM Encoderで画像埋め込み生成（1024x1024にリサイズ）
 2. グリッドポイントベースの自動マスク生成
 3. NMS（Non-Maximum Suppression）で重複除去
 4. インスタンスマージと背景分離
@@ -114,10 +115,10 @@ interface SegmentationResult {
 %%{init: {'theme': 'dark'}}%%
 flowchart TD
     A["ImageData"] --> B["1024x1024リサイズ"]
-    B --> C["SAM 2 Encoder"]
+    B --> C["MobileSAM Encoder"]
     C --> D["画像埋め込み"]
     D --> E["グリッドポイント生成<br/>(32x32 = 1024点)"]
-    E --> F["SAM 2 Decoder<br/>(バッチ処理)"]
+    E --> F["MobileSAM Decoder<br/>(バッチ処理)"]
     F --> G["マスク候補"]
     G --> H["NMS + フィルタリング"]
     H --> I["インスタンスマージ"]

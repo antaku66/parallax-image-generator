@@ -1,6 +1,6 @@
 # 視差画像作成Webアプリケーション 概要
 
-最終更新日: 2026-01-20
+最終更新日: 2026-04-03
 
 ## 1. プロジェクトの目的
 
@@ -38,15 +38,16 @@
 
 | ライブラリ | 用途 | モデルサイズ | ライセンス |
 | --- | --- | --- | --- |
-| SAM 2 (Segment Anything Model 2) | セグメンテーション | ~150MB (Encoder ~100MB + Decoder ~20MB) | Apache 2.0 |
+| MobileSAM | セグメンテーション | ~44.5MB (Encoder ~28MB + Decoder ~16.5MB) | Apache 2.0 |
 | onnxruntime-web | ML推論エンジン | - | MIT |
 | MiDaS v2.1 small | 深度推定 | ~20MB | MIT |
 | LaMa | インペインティング | ~208MB (FP32) / ~52MB (INT8) | Apache 2.0 |
 
-SAM 2を採用した理由:
+MobileSAMを採用した理由:
 
 - インスタンスセグメンテーション対応（複数人を個別セグメントに分離可能）
 - MediaPipeはセマンティックセグメンテーションのみで複数人の個別分離不可
+- SAM 2はEncoder 148MBで推論45-90秒かかるが、MobileSAMはEncoder 28MBで1-3秒に短縮
 
 ### 4.3 レンダリング・状態管理
 
@@ -84,7 +85,7 @@ flowchart TB
         Comlink["Comlink"]
 
         subgraph Workers["Web Workers"]
-            Seg["Segmentation Worker<br/>(MediaPipe)"]
+            Seg["Segmentation Worker<br/>(MobileSAM)"]
             Depth["Depth Worker<br/>(MiDaS)"]
             Inpaint["Inpainting Worker<br/>(LaMa)"]
         end
@@ -123,7 +124,7 @@ flowchart TD
     subgraph parallel["並列処理"]
         direction LR
         subgraph seg["セグメンテーション"]
-            C["MediaPipe Worker"]
+            C["MobileSAM Worker"]
             D["前景マスク<br/>背景マスク"]
         end
         subgraph depth["深度推定"]
