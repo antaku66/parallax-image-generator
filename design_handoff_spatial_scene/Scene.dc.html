@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@keyframes sceneHintFade { 0%,70%{opacity:1} 100%{opacity:0} }
+@keyframes sceneFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+</style>
+</helmet>
+<div data-scene-root data-sid="{{ sid }}" style="position:absolute; inset:0; overflow:hidden; cursor:grab; touch-action:none; user-select:none; background:#0a0a0b; --px:0; --py:0;">
+
+  <!-- far: sky -->
+  <div data-layer style="position:absolute; left:-8%; top:-8%; width:116%; height:116%; --d:5; background:linear-gradient(180deg, var(--sky-top,#cfe0ef) 0%, var(--sky-mid,#e8eef3) 55%, var(--sky-bot,#f4f1ec) 100%);"></div>
+
+  <!-- sun / light source -->
+  <div data-layer style="position:absolute; left:50%; top:24%; width:160px; height:160px; margin-left:-80px; margin-top:-80px; --d:9; border-radius:50%; background:radial-gradient(circle, var(--sun,#fff7ea) 0%, rgba(255,247,234,0.55) 38%, rgba(255,247,234,0) 70%);"></div>
+
+  <!-- far ridge -->
+  <div data-layer style="position:absolute; left:-10%; bottom:34%; width:120%; height:30%; --d:16; background:var(--ridge,#b9c7d6); border-radius:60% 55% 0 0 / 100% 100% 0 0; filter:blur(0.4px); opacity:0.9;"></div>
+
+  <!-- mid hill -->
+  <div data-layer style="position:absolute; left:-12%; bottom:20%; width:124%; height:34%; --d:30; background:var(--hill,#8ea3b8); border-radius:55% 60% 0 0 / 100% 100% 0 0;"></div>
+
+  <!-- near foreground -->
+  <div data-layer style="position:absolute; left:-14%; bottom:-6%; width:128%; height:42%; --d:52; background:var(--fore,#33414f); border-radius:50% 48% 0 0 / 90% 100% 0 0;"></div>
+
+  <!-- lone subject silhouette (closest) -->
+  <div data-layer style="position:absolute; left:38%; bottom:11%; width:14px; height:74px; --d:78; background:var(--fore,#33414f); border-radius:8px 8px 3px 3px; transform-origin:bottom center;"></div>
+  <div data-layer style="position:absolute; left:36.6%; bottom:21%; width:36px; height:36px; margin-left:0; --d:78; background:var(--fore,#33414f); border-radius:50%;"></div>
+
+  <!-- atmosphere / vignette -->
+  <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 90% at 50% 38%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.28) 100%);"></div>
+  <div style="position:absolute; inset:0; pointer-events:none; opacity:0.05; mix-blend-mode:overlay; background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>');"></div>
+
+  <!-- drag hint -->
+  <sc-if value="{{ showHint }}" hint-placeholder-val="{{ true }}">
+  <div data-scene-hint style="position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px; background:rgba(20,22,26,0.42); backdrop-filter:blur(10px); color:#fff; font:500 12px/1 'Hanken Grotesk',sans-serif; letter-spacing:0.02em; animation:sceneHintFade 4.5s ease forwards; pointer-events:none;">
+    <span style="display:inline-flex; animation:sceneFloat 2s ease-in-out infinite;">⤡</span>
+    <span>ドラッグして視点を動かす · Drag to look around</span>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:420},&quot;tone&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dawn&quot;,&quot;dusk&quot;,&quot;mono&quot;],&quot;default&quot;:&quot;dawn&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;strength&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0.2,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;},&quot;hint&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;sid&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() {
+    this.root = this._root();
+    if (!this.root) return;
+    this.applyTone();
+    this.target = { x: 0, y: 0 };
+    this.cur = { x: 0, y: 0 };
+    this.dragging = false;
+    this.raf = null;
+    const r = this.root;
+    r.addEventListener('pointerdown', this.onDown);
+    r.addEventListener('pointermove', this.onMove);
+    window.addEventListener('pointerup', this.onUp);
+    this.loop();
+  }
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    const r = this.root;
+    if (r) { r.removeEventListener('pointerdown', this.onDown); r.removeEventListener('pointermove', this.onMove); }
+    window.removeEventListener('pointerup', this.onUp);
+  }
+  _root() {
+    const sid = this.props.sid;
+    if (sid) {
+      const el = document.querySelector('[data-sid="' + sid + '"]');
+      if (el) return el;
+    }
+    const all = document.querySelectorAll('[data-scene-root]');
+    for (const el of all) { if (!el.__claimed) { el.__claimed = true; return el; } }
+    return all[all.length - 1] || null;
+  }
+  applyTone() {
+    const tone = this.props.tone || 'dawn';
+    const P = {
+      dawn: { skyTop:'#bcd3e8', skyMid:'#e7eef3', skyBot:'#f6efe6', sun:'#fff6e6', ridge:'#b7c8d8', hill:'#8ba2b9', fore:'#2f3e4d', bg:'#e7eef3' },
+      dusk: { skyTop:'#10131c', skyMid:'#1c2336', skyBot:'#3a2f3f', sun:'#ffd9a8', ridge:'#2a3450', hill:'#222b44', fore:'#0c0f18', bg:'#0a0a0b' },
+      mono: { skyTop:'#d6dbe0', skyMid:'#e9ecef', skyBot:'#f4f6f7', sun:'#ffffff', ridge:'#c2c8ce', hill:'#9aa2aa', fore:'#3c4248', bg:'#e9ecef' },
+    }[tone] || {};
+    const r = this.root;
+    r.style.setProperty('--sky-top', P.skyTop);
+    r.style.setProperty('--sky-mid', P.skyMid);
+    r.style.setProperty('--sky-bot', P.skyBot);
+    r.style.setProperty('--sun', P.sun);
+    r.style.setProperty('--ridge', P.ridge);
+    r.style.setProperty('--hill', P.hill);
+    r.style.setProperty('--fore', P.fore);
+    r.style.background = P.bg;
+    // apply per-layer transforms via vars
+    this.strength = parseFloat(this.props.strength || '1');
+    this.layers = [...r.querySelectorAll('[data-layer]')];
+    this.layers.forEach(l => {
+      const base = l.style.transform || '';
+      l.__base = base;
+    });
+  }
+  onDown = (e) => {
+    e.stopPropagation();
+    this.dragging = true;
+    this.startX = e.clientX; this.startY = e.clientY;
+    this.baseX = this.target.x; this.baseY = this.target.y;
+    this.root.style.cursor = 'grabbing';
+    const hint = this.root.querySelector('[data-scene-hint]');
+    if (hint) hint.style.opacity = '0';
+    try { this.root.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  onMove = (e) => {
+    if (!this.dragging) return;
+    e.stopPropagation();
+    const w = this.root.clientWidth || 1, h = this.root.clientHeight || 1;
+    this.target.x = Math.max(-1, Math.min(1, this.baseX + (e.clientX - this.startX) / (w * 0.5)));
+    this.target.y = Math.max(-1, Math.min(1, this.baseY + (e.clientY - this.startY) / (h * 0.5)));
+  };
+  onUp = () => {
+    if (!this.dragging) return;
+    this.dragging = false;
+    if (this.root) this.root.style.cursor = 'grab';
+  };
+  loop = () => {
+    const s = this.props ? parseFloat(this.props.strength || '1') : 1;
+    this.cur.x += (this.target.x - this.cur.x) * 0.12;
+    this.cur.y += (this.target.y - this.cur.y) * 0.12;
+    if (this.root) {
+      this.root.style.setProperty('--px', this.cur.x.toFixed(4));
+      this.root.style.setProperty('--py', this.cur.y.toFixed(4));
+      (this.layers || []).forEach(l => {
+        const d = parseFloat(getComputedStyle(l).getPropertyValue('--d')) || 0;
+        const tx = this.cur.x * d * s;
+        const ty = this.cur.y * d * 0.5 * s;
+        l.style.transform = `${l.__base} translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px)`;
+      });
+    }
+    this.raf = requestAnimationFrame(this.loop);
+  };
+  renderVals() { return { showHint: this.props.hint !== false }; }
+}
+</script>
+</body>
+</html>

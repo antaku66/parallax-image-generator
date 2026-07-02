@@ -1,156 +1,86 @@
-# 視差画像作成Webアプリケーション 概要
+# Spatial Scene Web App 概要
 
-最終更新日: 2026-04-03
+最終更新日: 2026-07-02
 
 ## 1. プロジェクトの目的
 
-画像をアップロードし、AIによるセグメンテーション・深度推定・インペインティングを経て、インタラクティブな視差画像を作成・閲覧できるWebアプリケーション。
+1枚の画像から擬似的な空間シーンを生成し、ブラウザ上でドラッグ操作により視点移動できる Web アプリ。iOS の空間シーン機能そのものは使わず、OSS とブラウザ標準技術でクライアントサイド完結の類似体験を実装する。
 
 ## 2. 主要機能
 
-1. **画像アップロード**: ドラッグ&ドロップ、ファイル選択対応
-2. **自動セグメンテーション**: 人物・物体の自動切り出し
-3. **深度推定**: 単眼画像から深度マップを生成
-4. **背景インペインティング**: 切り出し部分を自然に補完
-5. **視差画像ビューア**: マウス/タッチ操作で3D風の視差効果
+1. **画像アップロード**: ドラッグ&ドロップ / ファイル選択
+2. **深度推定**: Depth Anything V2 による単眼深度推定（ONNX Runtime Web）
+3. **空間シーン**: 深度から前景/背景レイヤーとメッシュを生成し Three.js で描画、ドラッグで視点移動
+4. **フォールバック**: モデル未配置/推論失敗時は CSS/Canvas の簡易視差へ自動降格
+5. **キャッシュ**: 同一画像は IndexedDB から即時再表示
 
-## 3. 技術要件
+## 3. 設計原則（実装ガイド §5 準拠）
 
-- **商用利用可能**: すべてのライブラリがApache 2.0またはMITライセンス
-- **クライアント完結**: サーバー不要、プライバシー保護
-- **レスポンシブ対応**: デスクトップ・モバイル両対応
-- **軽量動作**: モバイルでも実用的な処理速度
+- 最終出力は `SpatialSceneAsset` に統一する。
+- ランタイム `SpatialSceneAsset` と保存用 `SerializedSpatialSceneAsset` を分離。
+- 深度規約は `0.0 = far` / `1.0 = near` に統一（`normalizeDepth` の 1 箇所でのみ向きを扱う）。
+- 端末性能に応じて内部解像度や分割数は調整するが、機能構成は共通にする。
+- 重い処理は Web Worker（Comlink）へ分離。TypedArray は Transferable で転送。
+- ONNX バックエンドは実際の `InferenceSession.create` で検証し、失敗時は WASM へフォールバック。
+- Three.js の Texture / Geometry / Material は差し替え・破棄時に必ず `dispose()`。
+- レイヤー補正・インペイント等は独立した処理として扱い、部分的に失敗しても処理全体を失敗扱いにしない。
+- 画像差し替え・キャンセル・エラー復旧で古い処理結果を UI へ反映しない。
 
----
+## 4. パイプライン概要
 
-## 4. 技術スタック
+アップロード → 前処理 → 深度推定 → 正規化 → 精緻化 → レイヤー生成（前景切抜 + 背景インペイント）→ メッシュ描画、という単一の流れで空間シーンを組み立てる。推論やレイヤー補完が使えない場合は CSS/Canvas の簡易視差へ降格する。詳細は [03-Pipeline.md](03-Pipeline.md)、実装状況は [05-Implementation.md](05-Implementation.md)。
 
-### 4.1 コア技術
+## 5. 技術スタック
 
-| カテゴリ         | 技術        | バージョン | ライセンス | 選定理由                         |
-| ---------------- | ----------- | ---------- | ---------- | -------------------------------- |
-| ビルドツール     | Vite        | ^6.0.0     | MIT        | 高速HMR、ESM対応                 |
-| UIフレームワーク | React       | ^19.0.0    | MIT        | コンポーネント設計、エコシステム |
-| 型システム       | TypeScript  | ^5.7.0     | Apache 2.0 | 型安全性、開発効率               |
-| スタイリング     | TailwindCSS | ^4.0.0     | MIT        | ユーティリティファースト、軽量   |
+| カテゴリ | 技術 | 備考 |
+| --- | --- | --- |
+| 言語 | TypeScript | strict |
+| ビルド | Vite 6 | ESM / Web Worker(ES) |
+| UI | React 19 | 命令的に Three.js を駆動 |
+| 描画 | three（生 Three.js / WebGL2） | React Three Fiber は不使用 |
+| 推論 | onnxruntime-web（1.23 系, JSEP） | Worker で `onnxruntime-web/webgpu` を import |
+| Worker 通信 | Comlink | `start` / `cancel` + Transferable |
+| 画像処理 | Canvas / OffscreenCanvas | Worker 安全 |
+| 状態管理 | zustand | スライス構成 |
+| ストレージ | IndexedDB（idb）+ Cache Storage | 資産・モデルのキャッシュ |
+| スタイル | TailwindCSS v4（`@theme` トークン） | Studio デザイン |
+| テスト | Vitest | 純ロジックのユニットテスト |
 
-### 4.2 ML/AI ライブラリ
+深度モデル（Depth Anything V2 Base ONNX, 量子化 約97MB。より高精細な Large も選択可）は `public/models/` に配置する（入手手順は [05-Implementation.md](05-Implementation.md)）。**未配置でも CSS/Canvas フォールバックで動作**する。
 
-| ライブラリ | 用途 | モデルサイズ | ライセンス |
-| --- | --- | --- | --- |
-| MobileSAM | セグメンテーション | ~44.5MB (Encoder ~28MB + Decoder ~16.5MB) | Apache 2.0 |
-| onnxruntime-web | ML推論エンジン | - | MIT |
-| MiDaS v2.1 small | 深度推定 | ~20MB | MIT |
-| LaMa | インペインティング | ~208MB (FP32) / ~52MB (INT8) | Apache 2.0 |
-
-MobileSAMを採用した理由:
-
-- インスタンスセグメンテーション対応（複数人を個別セグメントに分離可能）
-- MediaPipeはセマンティックセグメンテーションのみで複数人の個別分離不可
-- SAM 2はEncoder 148MBで推論45-90秒かかるが、MobileSAMはEncoder 28MBで1-3秒に短縮
-
-### 4.3 レンダリング・状態管理
-
-| ライブラリ         | 用途               | ライセンス |
-| ------------------ | ------------------ | ---------- |
-| three              | 3Dレンダリング     | MIT        |
-| @react-three/fiber | React-Three.js統合 | MIT        |
-| @react-three/drei  | Three.jsヘルパー   | MIT        |
-| zustand            | 状態管理           | MIT        |
-| comlink            | Web Worker通信     | Apache 2.0 |
-
-### 4.4 ライセンス適合性
-
-すべてのライブラリは商用利用可能。帰属表示が必要なもの：
-
-- Apache 2.0: NOTICE/LICENSEファイルの同梱
-- MIT: 著作権表示の保持
-
----
-
-## 5. アーキテクチャ
-
-### 5.1 全体構成図
+## 6. アーキテクチャ全体図
 
 ```mermaid
-%%{init: {'theme': 'dark'}}%%
+%%{init: {'theme':'dark'}}%%
 flowchart TB
-    subgraph Browser["ブラウザ"]
-        subgraph MainThread["Main Thread"]
-            React["React Components"]
-            Zustand["Zustand Store"]
-            ThreeJS["Three.js Renderer"]
-        end
-
-        Comlink["Comlink"]
-
-        subgraph Workers["Web Workers"]
-            Seg["Segmentation Worker<br/>(MobileSAM)"]
-            Depth["Depth Worker<br/>(MiDaS)"]
-            Inpaint["Inpainting Worker<br/>(LaMa)"]
-        end
-
-        subgraph Storage["Storage"]
-            IDB["IndexedDB"]
-            Cache["Model Cache"]
-        end
+    subgraph Main["Main Thread"]
+        UI["React UI（Studio シェル）"]
+        Store["zustand Store"]
+        Renderer["LayeredRenderer（Three.js）"]
+        Drag["DragCameraController（Pointer Events）"]
     end
 
-    React --> Comlink
-    Zustand --> Comlink
-    ThreeJS --> Comlink
-    Comlink --> Seg
-    Comlink --> Depth
-    Comlink --> Inpaint
-    Seg --> IDB
-    Depth --> IDB
-    Inpaint --> IDB
-    IDB --- Cache
-```
+    Comlink["Comlink"]
 
-### 5.2 データフロー
-
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-flowchart TD
-    subgraph input["入力"]
-        A["画像ファイル<br/>(JPEG/PNG/WebP)"]
+    subgraph Worker["Processing Worker"]
+        Pre["前処理（OffscreenCanvas）"]
+        Depth["DepthEstimator（ONNX / WebGPU→WASM）"]
+        Pipe["Pipeline（正規化→精緻化→レイヤー生成）"]
+        Ser["serialize"]
     end
 
-    subgraph preprocess["前処理"]
-        B["画像前処理<br/>(max 1024px)<br/>リサイズ, EXIF回転補正"]
+    subgraph Storage["Storage"]
+        IDB["IndexedDB（SerializedSpatialSceneAsset）"]
+        Cache["Cache Storage（モデル / wasm）"]
     end
 
-    subgraph parallel["並列処理"]
-        direction LR
-        subgraph seg["セグメンテーション"]
-            C["MobileSAM Worker"]
-            D["前景マスク<br/>背景マスク"]
-        end
-        subgraph depth["深度推定"]
-            E["MiDaS Worker"]
-            F["深度マップ<br/>Float32Array"]
-        end
-    end
-
-    subgraph inpaint["インペインティング"]
-        G["LaMa Worker"]
-        H["補完済み背景"]
-    end
-
-    subgraph compose["合成・表示"]
-        I["視差合成<br/>(Three.js)"]
-        J["視差ビューア<br/>マウス/タッチ対応"]
-    end
-
-    A --> B
-    B --> C
-    B --> E
-    C --> D
-    E --> F
-    D --> G
-    G --> H
-    H --> I
-    F --> I
-    I --> J
+    UI --> Store
+    Store --> Renderer
+    Drag --> Renderer
+    UI -->|start/cancel| Comlink
+    Comlink --> Pre --> Depth --> Pipe --> Ser
+    Depth <--> Cache
+    Ser --> IDB
+    Pipe -->|"complete（Transferable）"| Comlink --> Store
+    Store -->|asset| Renderer
 ```
