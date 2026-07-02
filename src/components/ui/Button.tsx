@@ -1,30 +1,47 @@
-import { type ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
-interface ButtonProps {
+type Variant = "primary" | "dark" | "soft" | "glass";
+
+const VARIANTS: Record<Variant, CSSProperties> = {
+  primary: {
+    background: "#0a84ff",
+    color: "#fff",
+    boxShadow: "0 4px 14px rgba(10,132,255,0.35)",
+  },
+  dark: { background: "#1d1d1f", color: "#fff" },
+  soft: { background: "rgba(0,0,0,0.05)", color: "#1d1d1f" },
+  glass: {
+    background: "rgba(255,255,255,0.8)",
+    color: "#1d1d1f",
+    border: "1px solid rgba(0,0,0,0.12)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+  },
+};
+
+type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
   children: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  variant?: "primary" | "secondary";
-}
+};
 
-export function Button({
-  children,
-  onClick,
-  disabled,
-  variant = "primary",
-}: ButtonProps) {
-  const baseStyles =
-    "px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
-  const variantStyles = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700",
-    secondary: "bg-gray-700 text-gray-200 hover:bg-gray-600",
-  };
-
+export function Button({ variant = "soft", children, style, ...rest }: Props) {
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`${baseStyles} ${variantStyles[variant]}`}
+      {...rest}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        border: "none",
+        borderRadius: 12,
+        fontFamily: "var(--font-sans)",
+        fontWeight: 600,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        ...VARIANTS[variant],
+        ...style,
+      }}
     >
       {children}
     </button>
