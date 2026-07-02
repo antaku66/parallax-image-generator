@@ -1,0 +1,18 @@
+{
+  "models": [
+    {
+      "id": "depth-anything-v2-base",
+      "url": "/models/depth-anything-v2-base.onnx",
+      "sizeBytes": 101711872,
+      "inputSide": 518,
+      "version": "v2-base-q"
+    },
+    {
+      "id": "depth-anything-v2-large",
+      "url": "/models/depth-anything-v2-large.onnx",
+      "sizeBytes": 335544320,
+      "inputSide": 518,
+      "version": "v2-large-q"
+    }
+  ]
+}
