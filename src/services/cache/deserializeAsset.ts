@@ -27,7 +27,8 @@ async function deserializeLayer(l: SerializedSceneLayer): Promise<SceneLayer> {
   return {
     id: l.id,
     depthRange: l.depthRange,
-    texture: await createImageBitmap(l.textureBlob),
+    // 生成時（buildLayers）と同じ straight alpha で復元する
+    texture: await createImageBitmap(l.textureBlob, { premultiplyAlpha: "none" }),
     mesh: l.mesh ? deserializeMesh(l.mesh) : undefined,
     parallax: l.parallax,
   };
