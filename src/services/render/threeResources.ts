@@ -4,14 +4,19 @@
 import * as THREE from "three";
 import type { SceneMesh } from "../../types";
 
-/** ImageBitmap から sRGB テクスチャを生成（uv 原点は左上に合わせ flipY=false） */
-export function textureFromBitmap(bitmap: ImageBitmap): THREE.Texture {
+/**
+ * ImageBitmap から sRGB テクスチャを生成（uv 原点は左上に合わせ flipY=false）。
+ * 縮小表示時のシャギー/モアレを防ぐためミップマップ + 異方性フィルタを有効化する
+ * （WebGL2 なので NPOT でもミップ生成可）。
+ */
+export function textureFromBitmap(bitmap: ImageBitmap, anisotropy = 1): THREE.Texture {
   const texture = new THREE.Texture(bitmap);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.flipY = false;
-  texture.minFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
+  texture.generateMipmaps = true;
+  texture.anisotropy = anisotropy;
   texture.needsUpdate = true;
   return texture;
 }

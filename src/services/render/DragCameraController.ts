@@ -89,14 +89,37 @@ export class DragCameraController {
     this.target.y = 0;
   };
 
-  /** 毎フレーム呼ぶ。カメラをオフセットさせ、中心を見続ける。 */
+  /** 毎フレーム呼ぶ。カメラを平行移動し、z=0 の画像面を画面に固定する。 */
   update(): { offsetX: number; offsetY: number } {
     this.cur.x += (this.target.x - this.cur.x) * this.smoothing;
     this.cur.y += (this.target.y - this.cur.y) * this.smoothing;
     // Y は上方向を正にするため反転
-    this.camera.position.x = this.cur.x * this.maxOffset;
-    this.camera.position.y = -this.cur.y * this.maxOffset;
-    this.camera.lookAt(0, 0, 0);
+    const ox = this.cur.x * this.maxOffset;
+    const oy = -this.cur.y * this.maxOffset;
+    this.camera.position.x = ox;
+    this.camera.position.y = oy;
+    this.applyOffAxisProjection(ox, oy);
     return { offsetX: this.cur.x, offsetY: this.cur.y };
+  }
+
+  // off-axis projection（head-tracked window 方式）。カメラは回転させず、
+  // z=0 の窓（画像フレーム）が画面上で不動になる非対称視錐台を組む。
+  // lookAt 回転による台形歪みと「絵全体が泳ぐ」印象を避け、視差を純粋な奥行きとして見せる。
+  private applyOffAxisProjection(ox: number, oy: number): void {
+    const cam = this.camera;
+    const d = cam.position.z;
+    const n = cam.near;
+    const halfH = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * d;
+    const halfW = halfH * cam.aspect;
+    const s = n / d;
+    cam.projectionMatrix.makePerspective(
+      (-halfW - ox) * s,
+      (halfW - ox) * s,
+      (halfH - oy) * s,
+      (-halfH - oy) * s,
+      n,
+      cam.far
+    );
+    cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
   }
 }
