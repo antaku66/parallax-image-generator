@@ -14,6 +14,7 @@ import { inputToTensor, outputToDepthMap, snapToPatch } from "./tensorIO";
 
 export class OnnxDepthEstimator implements DepthEstimator {
   private session: ort.InferenceSession | null = null;
+  /** 推論長辺の上限。実寸法は入力のアスペクト比を保って tensorIO 側で決まる。 */
   private inputSide = 518;
   backend: OnnxBackend | null = null;
 

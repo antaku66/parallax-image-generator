@@ -1,9 +1,10 @@
 // 画像前処理（MD §8）。Worker 内で動作する（DOM 非依存）。
 
 import { IMAGE_LIMITS, type ImageLimitTier } from "../../constants/imageLimits";
+import { inferenceDims } from "../depth/tensorIO";
 
 export type PreprocessResult = {
-  /** 推論用（depthSide に収めた）画像 */
+  /** 推論用（長辺 depthSide・両辺 14 の倍数、アスペクト比保持）画像 */
   inference: ImageBitmap;
   /** 表示テクスチャ用（textureSide に収めた）画像 */
   display: ImageBitmap;
@@ -50,7 +51,13 @@ export async function preprocessImage(
   oriented.close();
 
   const display = await fitBitmap(base, limits.textureSide);
-  const inference = await fitBitmap(base, limits.depthSide);
+  // 推論寸法へ base から直接リサイズ（二重リサンプルを避ける）
+  const [infW, infH] = inferenceDims(base.width, base.height, limits.depthSide);
+  const inference = await createImageBitmap(base, {
+    resizeWidth: infW,
+    resizeHeight: infH,
+    resizeQuality: "high",
+  });
   base.close();
 
   return {

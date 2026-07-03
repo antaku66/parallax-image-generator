@@ -26,7 +26,7 @@ import { getScene, putScene } from "../services/cache/sceneStore";
 import { deserializeAsset } from "../services/cache/deserializeAsset";
 import { buildSceneCacheKey } from "../services/cache/sceneCacheKey";
 import { collectTransferables } from "../utils/transfer";
-import { DEFAULT_MODEL, MODELS } from "../constants/models";
+import { DEFAULT_MODEL } from "../constants/models";
 import { IMAGE_LIMITS } from "../constants/imageLimits";
 
 const registry = new CancellationRegistry();
@@ -123,7 +123,7 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
         backend: est.backend ?? "wasm",
         gridX: IMAGE_LIMITS[tier].meshGrid,
         gridY: IMAGE_LIMITS[tier].meshGrid,
-        depthSide: MODELS[model].inputSide,
+        depthSide: IMAGE_LIMITS[tier].depthSide,
         startedAt,
         onStage: emitProgress,
         shouldCancel,

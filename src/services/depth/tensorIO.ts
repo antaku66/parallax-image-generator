@@ -1,6 +1,7 @@
 // テンソル入出力（Depth Anything V2）。
 // 入力: pixel_values [1,3,H,W] float32 NCHW RGB（ImageNet 正規化）
 // 出力: predicted_depth [1,H,W]（大きい=近い）
+// モデルは動的軸対応のため、アスペクト比を保ったまま両辺 14 の倍数で推論する。
 
 import * as ort from "onnxruntime-web/webgpu";
 import type { FloatDepthMap } from "../../types";
@@ -12,9 +13,22 @@ export function snapToPatch(side: number, patch = 14): number {
   return Math.max(patch, Math.round(side / patch) * patch);
 }
 
-function normalizeToCHW(imageData: ImageData, side: number): Float32Array {
-  const { data } = imageData;
-  const area = side * side;
+/**
+ * アスペクト比を保ち、長辺を maxSide 以下（拡大なし）・両辺を patch の倍数にした
+ * 推論寸法 [width, height] を求める。
+ */
+export function inferenceDims(
+  width: number,
+  height: number,
+  maxSide: number
+): [number, number] {
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  return [snapToPatch(width * scale), snapToPatch(height * scale)];
+}
+
+function normalizeToCHW(imageData: ImageData): Float32Array {
+  const { data, width, height } = imageData;
+  const area = width * height;
   const chw = new Float32Array(3 * area);
   const { mean, std } = IMAGENET_NORMALIZATION;
   for (let p = 0; p < area; p++) {
@@ -28,21 +42,22 @@ function normalizeToCHW(imageData: ImageData, side: number): Float32Array {
   return chw;
 }
 
+/** 入力画像をアスペクト比保持でテンソル化する。maxSide は推論長辺の上限。 */
 export async function inputToTensor(
   input: ImageBitmap | ImageData,
-  side: number
+  maxSide: number
 ): Promise<ort.Tensor> {
-  const s = snapToPatch(side);
+  const [w, h] = inferenceDims(input.width, input.height, maxSide);
   let imageData: ImageData;
   if (input instanceof ImageData) {
     const bmp = await createImageBitmap(input);
-    imageData = bitmapToImageData(bmp, s, s);
+    imageData = bitmapToImageData(bmp, w, h);
     bmp.close();
   } else {
-    imageData = bitmapToImageData(input, s, s);
+    imageData = bitmapToImageData(input, w, h);
   }
-  const chw = normalizeToCHW(imageData, s);
-  return new ort.Tensor("float32", chw, [1, 3, s, s]);
+  const chw = normalizeToCHW(imageData);
+  return new ort.Tensor("float32", chw, [1, 3, h, w]);
 }
 
 /** 出力テンソル → 生の FloatDepthMap（未正規化） */
