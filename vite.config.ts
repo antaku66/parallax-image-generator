@@ -43,6 +43,8 @@ export default defineConfig({
     target: "esnext",
   },
   server: {
+    // ランチャー（PORT 指定）からの起動時はそのポートへバインドする
+    port: Number(process.env.PORT) || 5173,
     headers: crossOriginIsolationHeaders,
   },
   preview: {
