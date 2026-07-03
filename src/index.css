@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+/* Studio デザイントークン（design_handoff_spatial_scene/README.md「Design Tokens」準拠）。
+   @theme に置くことで text-ink / bg-stage / font-display などのユーティリティとしても使える。 */
+@theme {
+  --color-accent: #0a84ff;
+  --color-accent-strong: #0a6fff;
+  --color-accent-violet: #5e5ce6;
+
+  --color-ink: #1d1d1f;
+  --color-ink-2: #6e6e73;
+  --color-ink-3: #86868b;
+  --color-ink-4: #aeaeb2;
+  --color-ink-5: #c7c7cc;
+
+  --color-page: #f0f0f3;
+  --color-stage: #eef1f4;
+  --color-card: #ffffff;
+
+  --color-success: #34c759;
+  --color-warn: #ff9f0a;
+
+  --font-sans: "Hanken Grotesk", "Zen Kaku Gothic New", system-ui, sans-serif;
+  --font-display: "Schibsted Grotesk", "Zen Kaku Gothic New", system-ui, sans-serif;
+  --font-jp: "Zen Kaku Gothic New", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Studio Viewer 準拠の range スタイル */
+input[type="range"].studio-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].studio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+}
+input[type="range"].studio-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+}
+
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sceneHintFade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes sceneFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}

@@ -143,3 +143,5 @@ vite.config.ts.timestamp-*
 
 # claude
 .claude/settings.local.json
+# ML モデルバイナリはコミットしない（入手手順は README/docs 参照）
+public/models/*.onnx

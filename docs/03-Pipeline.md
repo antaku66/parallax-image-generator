@@ -1,357 +1,86 @@
 # 処理パイプライン詳細
 
-最終更新日: 2026-04-03
+最終更新日: 2026-07-03
 
-## 1. パイプライン概要図
-
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-flowchart TD
-    A["画像アップロード"] --> B["画像前処理"]
-    B --> C["セグメンテーション<br/>(MobileSAM)"]
-    B --> D["深度推定<br/>(MiDaS)"]
-    C --> E["インスタンスマスク<br/>(前景/背景分離)"]
-    D --> F["深度マップ"]
-    E --> G["インペインティング<br/>(LaMa)"]
-    G --> H["補完済み背景"]
-    H --> I["視差合成<br/>(Three.js)"]
-    F --> I
-    I --> J["インタラクティブ視差ビュー"]
-
-    C -.->|並列実行| D
-```
-
----
-
-## 2. Step 1: 画像前処理
-
-**責務**: アップロードされた画像を処理に適した形式に変換
-
-**入力**:
-
-- ユーザーがアップロードした画像ファイル (JPEG/PNG/WebP)
-
-**処理内容**:
-
-1. **EXIF回転補正**: スマートフォン撮影画像の向きを正規化
-2. **リサイズ**: 最大辺を1024pxに制限（モバイル対応）
-3. **ImageData変換**: Canvas APIでRGBA形式に変換
-4. **バリデーション**: ファイルサイズ・形式チェック
-
-**出力**:
-
-```typescript
-interface ProcessedImage {
-  imageData: ImageData; // RGBA形式の画像データ
-  originalWidth: number; // 元の幅
-  originalHeight: number; // 元の高さ
-  processedWidth: number; // 処理後の幅
-  processedHeight: number; // 処理後の高さ
-}
-```
-
-**実装ファイル**: `src/services/image/ImageUtils.ts`
-
----
-
-## 3. Step 2: セグメンテーション
-
-**責務**: 画像から人物・物体を切り出し、インスタンスごとにマスクを生成
-
-**使用モデル**: MobileSAM
-
-- Encoderモデルサイズ: ~28MB（TinyViT）
-- Decoderモデルサイズ: ~16.5MB
-- 推論時間: ~1-3秒 (デスクトップ WebGPU) / ~3-5秒 (WASM)
-- ライセンス: Apache 2.0
-
-**モデル選定理由**:
-
-- インスタンスセグメンテーション対応（複数人を個別セグメントに分離可能）
-- MediaPipeはセマンティックセグメンテーションのみで複数人の個別分離不可
-- SAM 2はEncoder 148MBでブラウザ推論に45-90秒かかるため、軽量なMobileSAM（mIoU差2pt）を採用
-
-**入力**:
-
-- `ImageData` (Step 1の出力)
-
-**処理内容**:
-
-1. MobileSAM Encoderで画像埋め込み生成（1024x1024にリサイズ）
-2. グリッドポイントベースの自動マスク生成
-3. NMS（Non-Maximum Suppression）で重複除去
-4. インスタンスマージと背景分離
-5. マスクの後処理（元サイズにリサイズ）
-
-**出力**:
-
-```typescript
-interface Segment {
-  id: number;
-  mask: Uint8Array;
-  bbox: BoundingBox;
-  area: number;
-  iouScore: number;
-  stabilityScore: number;
-  isBackground: boolean;
-}
-
-interface SegmentationResult {
-  segments: Segment[];
-  backgroundMask: Uint8Array;
-  width: number;
-  height: number;
-  originalWidth: number;
-  originalHeight: number;
-  processingTime: number;
-}
-```
-
-**Web Worker**: `src/workers/segmentation.worker.ts`
-
-**処理フロー**:
+## 1. パイプライン概要（実装ガイド §4）
 
 ```mermaid
-%%{init: {'theme': 'dark'}}%%
+%%{init: {'theme':'dark'}}%%
 flowchart TD
-    A["ImageData"] --> B["1024x1024リサイズ"]
-    B --> C["MobileSAM Encoder"]
-    C --> D["画像埋め込み"]
-    D --> E["グリッドポイント生成<br/>(32x32 = 1024点)"]
-    E --> F["MobileSAM Decoder<br/>(バッチ処理)"]
-    F --> G["マスク候補"]
-    G --> H["NMS + フィルタリング"]
-    H --> I["インスタンスマージ"]
-    I --> J["背景分離"]
-    J --> K["SegmentationResult"]
+    A["画像アップロード"] --> B["前処理（EXIF補正・推論用/表示用に分離）"]
+    B --> H["画像ハッシュ + キャッシュ確認"]
+    H -->|ヒット| Z["deserialize → 表示"]
+    H -->|ミス| C["モデル存在確認"]
+    C -->|無し| F["CSS/Canvas フォールバック資産"]
+    C -->|有り| D["Depth Anything V2 推論"]
+    D --> E["percentile 正規化 → 中央値スパイク除去 → guided filter でエッジ整合"]
+    E --> G["レイヤー生成（分離度判定 → 単層 or 前景切抜 + 背景インペイント）"]
+    G --> J["SpatialSceneAsset 組立 + serialize/保存"]
+    J --> K["complete（Transferable で返却）"]
 ```
 
+## 2. ステージ（`ProcessingStage`, 実装ガイド §20）
 
----
+`preprocessing-image` → `loading-model` → `estimating-depth` → `normalizing-depth` → `building-mesh`（レイヤー生成）→ `finalizing`。各ステージ境界でキャンセルを確認する（前処理・ハッシュ算出を先に行い、キャッシュミス時のみモデルをロードする）。
 
-## 4. Step 3: 深度推定
+## 3. main ↔ worker データフロー
 
-**責務**: 単眼画像から相対深度マップを生成
-
-**使用モデル**: MiDaS v2.1 small (ONNX)
-
-- モデルサイズ: ~20MB
-- 入力サイズ: 256x256
-- 推論時間: ~200ms (WebGL) / ~500ms (WASM)
-
-**入力**:
-
-- `ImageData` (Step 1の出力)
-
-**処理内容**:
-
-1. ONNX Runtimeの初期化（WebGPU優先、WASMフォールバック）
-2. 画像の前処理（リサイズ、正規化）
-3. MiDaS推論
-4. 深度マップの後処理（正規化0-1）
-
-**出力**:
-
-```typescript
-interface DepthEstimationResult {
-  depthMap: Float32Array; // 正規化深度（0=近い、1=遠い）
-  width: number;
-  height: number;
-  minDepth: number; // 最小深度値
-  maxDepth: number; // 最大深度値
-}
+```mermaid
+%%{init: {'theme':'dark'}}%%
+sequenceDiagram
+    participant U as UI(useProcessing)
+    participant W as workerClient(Comlink)
+    participant P as processing.worker
+    U->>W: start({id, file}, onEvent)
+    W->>P: start(req, proxy(onEvent))
+    P-->>U: progress（stage, 0..1）
+    alt モデル有り
+        P->>P: 前処理→推論→正規化/精緻化→レイヤー生成
+        P->>P: serialize + IndexedDB 保存
+        P-->>U: complete（asset, Transferable）
+    else モデル無し/失敗
+        P-->>U: error（message, fallbackAsset?）
+    end
+    U->>W: cancel(id)（任意）
+    Note over U: id ≠ activeJobId のイベントは破棄
 ```
 
-**Web Worker**: `src/workers/depth.worker.ts`
+- **Transferable**: 深度 `Float32Array`、メッシュ `positions/uvs/indices`、`ImageBitmap` を `Comlink.transfer` でゼロコピー返却（`utils/transfer.ts`）。保存(serialize)は転送前にコピーで実施。
+- **キャンセル**（実装ガイド §20）: 推論自体は中断できないが、後続ステージを打ち切り、main 側は `id !== activeJobId` のイベントを破棄する（single-flight）。
 
-**コード例**:
+## 4. 深度推定（実装ガイド §9/§10）
 
-```typescript
-// depth.worker.ts
-import * as ort from "onnxruntime-web";
+- 入力 `pixel_values` `[1,3,H,W]` float32 NCHW RGB、ImageNet 正規化。ONNX は動的軸対応のため**アスペクト比を保持**し、長辺を tier 別 `IMAGE_LIMITS[tier].depthSide`（mobile 392 / desktop 518）・両辺を 14 の倍数にスナップして推論する（`inferenceDims`）。前処理（`preprocessImage`）が推論寸法へ直接リサイズし、二重リサンプルを避ける。
+- 出力 `predicted_depth` `[1,H,W]`。Depth Anything V2 は「大きい=近い」を出力するため、`normalizeDepth` の規約（0=far/1=near）と一致し既定では反転しない。
+- 正規化は percentile（0.02/0.98）、range 下限 1e-6 でゼロ除算回避。
+- 正規化後、深度後処理を 2 段適用する（破綻低減）:
+  - `medianDepth`: 中央値フィルタで孤立スパイク（葉むら等の高周波ノイズが手前へ飛ぶ「浮遊断片」の原因）を除去。
+  - `refineDepth`: guided filter で推論画像の輝度をガイドに、深度エッジを実シルエットへ整合させつつ平坦部を平滑化。ガイドは推論用画像を深度と同寸へ描画した輝度（`luminanceFromImageData`）。
+- バックエンドは `webgpu` で `InferenceSession.create` を試み、失敗時 `wasm`（`resolveOnnxBackend`）。
 
-let session: ort.InferenceSession | null = null;
+## 5. レイヤー生成（実装ガイド §13/§14）
 
-async function initializeDepthModel(): Promise<void> {
-  // WebGPU優先、WASMフォールバック
-  const providers = ["webgpu", "wasm"];
-  session = await ort.InferenceSession.create(
-    "/models/depth/midas_v21_small.onnx",
-    { executionProviders: providers }
-  );
-}
+遮蔽で生じる穴を根本解消するため、refined 深度をレイヤーに分けて描画する（`buildLayers`）。
 
-async function estimateDepth(
-  imageData: ImageData
-): Promise<DepthEstimationResult> {
-  if (!session) await initializeDepthModel();
+- **分割判定**: `splitDepthLayers` が Otsu 法で前景/背景しきい値・前景ソフトマスク・**分離度 η**（クラス間分散/全分散）を求める（near=前景）。η が `minSplitSeparability` 未満（深度が連続的な風景等）は 2 層分割を放棄し、不連続カリング付きの**連続メッシュ 1 枚（単層）**へフォールバックする（「一枚の面が裂ける」破綻を防ぐ）。
+- **マットのエッジ整合アップサンプリング**: 深度解像度の前景マスクはテクスチャ解像度へ双線形拡大後、輝度ガイドの guided filter（`upsampleMatte`）で実シルエットへ吸着させる。
+- **背景レイヤー**: 前景領域を除去し `pushPullInpaint`（マスク付き push-pull）で色・深度をインペイントした「完全な背景」。カリング無しの完全メッシュなので前景がずれても穴が出ない。**外周ガター**（`bgGutter`、インペイント余白 + メッシュ位置への焼き込み）を持ち、視差移動時のフレーム外露出を防ぐ（単層シーンも同様）。
+- **前景レイヤー**: 被写体の切り抜き。アルファは 1〜2px チョーク（`erodeMin`）で混合画素を削り、エッジ帯の RGB は被写体内部色の押し出し（push-pull による**色デコンタミネーション**）で背景色の焼き込みを除去する。メッシュは前景マスクでカリングし、マスク外の深度を被写体深度の押し出しで置換（**スカート平坦化**）して境界三角形が背景深度へ引き伸ばされる「膜」を防ぐ。テクスチャは straight alpha（`premultiplyAlpha: "none"` 明示）。
+- 格子は tier 別 `IMAGE_LIMITS[tier].meshGrid`（mobile 128 / desktop 192）。z = 深度 × `PIPELINE_DEFAULTS.depthScale`。全レイヤーを同一 depthScale で配置し、視差は Z 差から自然に生じる。
 
-  // 前処理: 256x256にリサイズ、正規化
-  const inputTensor = preprocessForMiDaS(imageData);
+## 6. フォールバック連鎖（実装ガイド §23）
 
-  // 推論
-  const results = await session.run({ input: inputTensor });
-  const depthMap = results.output.data as Float32Array;
-
-  // 後処理: 0-1に正規化
-  return normalizeDepthMap(depthMap, imageData.width, imageData.height);
-}
+```mermaid
+%%{init: {'theme':'dark'}}%%
+flowchart LR
+    W["WebGPU 推論"] -->|失敗| A["WASM 推論"]
+    A -->|失敗/モデル無し| C["CSS/Canvas フォールバック"]
 ```
 
----
+WebGPU→WASM 降格は `resolveOnnxBackend`（`DepthEstimator` の `backend:'auto'`）が `InferenceSession.create` の成否で担う（§4）。モデル未配置・推論失敗時は `layers` 空の資産を返し、UI が `CssFallbackViewer`（元画像 + blur 背景）を表示する。
 
-## 5. Step 4: インペインティング
+## 7. レンダリングとドラッグ（実装ガイド §18/§19）
 
-**責務**: 前景を除去した背景部分を自然に補完
-
-**使用モデル**: LaMa (Large Mask Inpainting)
-
-- FP32モデル: ~208MB（高品質、デスクトップ向け）
-- INT8モデル: ~52MB（軽量、モバイル向け）
-- 入力サイズ: 512x512
-
-**入力**:
-
-- `ImageData` (Step 1の出力)
-- `foregroundMask` (Step 2の出力)
-
-**処理内容**:
-
-1. ONNX Runtimeの初期化
-2. 画像とマスクの前処理（512x512にリサイズ）
-3. LaMa推論
-4. 結果を元のサイズにリサイズ
-
-**出力**:
-
-```typescript
-interface InpaintingResult {
-  inpaintedImage: ImageData; // 補完済み背景画像
-  processingTime: number; // 処理時間（ms）
-}
-```
-
-**Web Worker**: `src/workers/inpainting.worker.ts`
-
-**コード例**:
-
-```typescript
-// inpainting.worker.ts
-import * as ort from "onnxruntime-web";
-
-let session: ort.InferenceSession | null = null;
-
-async function initializeLaMa(quality: "high" | "balanced"): Promise<void> {
-  const modelPath =
-    quality === "high"
-      ? "/models/inpainting/lama_fp32.onnx"
-      : "/models/inpainting/lama_int8.onnx";
-
-  const providers = quality === "high" ? ["webgpu", "wasm"] : ["wasm"];
-  session = await ort.InferenceSession.create(modelPath, {
-    executionProviders: providers,
-  });
-}
-
-async function inpaint(
-  image: ImageData,
-  mask: ImageData
-): Promise<InpaintingResult> {
-  if (!session) await initializeLaMa("balanced");
-
-  // 512x512にリサイズ
-  const [imageInput, maskInput] = preprocessForLaMa(image, mask);
-
-  // 推論
-  const startTime = performance.now();
-  const results = await session.run({
-    image: imageInput,
-    mask: maskInput,
-  });
-  const processingTime = performance.now() - startTime;
-
-  // 元のサイズに戻す
-  const inpaintedImage = postprocessLaMa(
-    results.output,
-    image.width,
-    image.height
-  );
-
-  return { inpaintedImage, processingTime };
-}
-```
-
----
-
-## 6. Step 5: 視差合成・表示
-
-**責務**: 前景・背景・深度マップを組み合わせて視差効果を生成
-
-**使用技術**: Three.js + React Three Fiber
-
-**入力**:
-
-- `foregroundImage`: マスク適用済み前景
-- `inpaintedBackground`: 補完済み背景
-- `depthMap`: 深度マップ
-
-**処理内容**:
-
-1. Three.jsシーンの構築
-2. 前景・背景をテクスチャとして配置
-3. 深度マップをDisplacement Mapとして適用
-4. ポインター追従による視差効果
-
-**視差効果の実装**:
-
-```typescript
-// ThreeScene.tsx
-import { useFrame, useThree } from '@react-three/fiber';
-import { useRef } from 'react';
-import * as THREE from 'three';
-
-interface ParallaxLayerProps {
-  texture: THREE.Texture;
-  depthMap: THREE.Texture;
-  depth: number;  // レイヤーの深度（0=最前面、1=最背面）
-  parallaxIntensity: number;
-}
-
-function ParallaxLayer({ texture, depthMap, depth, parallaxIntensity }: ParallaxLayerProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { pointer } = useThree();
-
-  useFrame(() => {
-    if (!meshRef.current) return;
-
-    // ポインター位置に応じてオフセット
-    const offsetX = pointer.x * parallaxIntensity * depth;
-    const offsetY = pointer.y * parallaxIntensity * depth;
-
-    meshRef.current.position.x = offsetX;
-    meshRef.current.position.y = offsetY;
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, -depth]}>
-      <planeGeometry args={[1, 1, 64, 64]} />
-      <meshStandardMaterial
-        map={texture}
-        displacementMap={depthMap}
-        displacementScale={0.1 * depth}
-        transparent
-      />
-    </mesh>
-  );
-}
-```
-
-**インタラクション**:
-
-- **デスクトップ**: マウス位置追従
-- **モバイル**: タッチドラッグ、ピンチズーム対応
-
-**出力**:
-
-- インタラクティブな視差ビュー（Canvas要素）
-- エクスポート機能（静止画/動画）
+- `LayeredRenderer`: 背景（不透明・外周ガターはメッシュに焼き込み済み）+ 前景（アルファ）の複数深度メッシュを 1 カメラで描画。単層資産（レイヤー 1 枚）もそのまま描画できる。テクスチャはミップマップ + 異方性フィルタ有効（ドラッグ中のシャギー/モアレ防止）。資産差し替え時に旧リソースを `dispose`。
+- `DragCameraController`: Pointer Events でカメラを**平行移動のみ**（回転なし）でオフセットし（`maxOffset` 0.13, `smoothing` 0.12）、**off-axis projection**（非対称視錐台）で z=0 の画像面を画面に固定する。lookAt 回転による台形歪み・絵全体の泳ぎを避け、視差を純粋な奥行きとして見せる。release で中心へイージング。ジャイロ不使用。
+- Depth スライダーはメッシュ z スケール、Reset は中心復帰要求。

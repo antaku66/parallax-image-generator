@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Schibsted+Grotesk:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; font-family:'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; -webkit-font-smoothing:antialiased; color:#1d1d1f; background:#f0f0f3; }
+  * { box-sizing:border-box; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; height:3px; border-radius:3px; background:rgba(0,0,0,0.12); outline:none; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; border:1px solid rgba(0,0,0,0.15); box-shadow:0 1px 3px rgba(0,0,0,0.2); cursor:grab; }
+  @keyframes ringSpin { to{ transform:rotate(360deg) } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; padding:44px 0 70px; display:flex; flex-direction:column; align-items:center; gap:30px;">
+
+  <!-- header -->
+  <div style="width:1320px;">
+    <div style="font:600 13px/1 'IBM Plex Mono',monospace; letter-spacing:0.16em; color:#86868b; text-transform:uppercase;">01 Studio · 画像アスペクト対応</div>
+    <div style="font:700 34px/1.1 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif; letter-spacing:-0.02em; margin-top:12px;">どんな画像でも、額装されたように。</div>
+    <div style="font:400 16px/1.6 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:10px; max-width:920px;">縦長・パノラマ・正方形 — ステージのアスペクトと合わない画像は、<b style="color:#1d1d1f; font-weight:600;">同じ画像をぼかした「アンビエント背景」</b>で余白を満たす（実装ガイド §17 fallback backdrop の応用）。レターボックスの黒帯は出さない。表示は<b style="color:#1d1d1f; font-weight:600;">全体 Fit</b>固定。</div>
+  </div>
+
+  <!-- ===== APP CARD ===== -->
+  <div style="position:relative; width:1320px; height:820px; background:#fff; border-radius:26px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.05), 0 34px 80px -30px rgba(0,0,0,0.30); display:flex; flex-direction:column;">
+
+    <!-- top bar -->
+    <div style="height:60px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 24px; border-bottom:1px solid rgba(0,0,0,0.06); z-index:6;">
+      <div style="display:flex; align-items:center; gap:11px;">
+        <div style="width:24px; height:24px; border-radius:7px; background:linear-gradient(145deg,#0a84ff,#5e5ce6);"></div>
+        <span style="font:700 17px/1 'Schibsted Grotesk',sans-serif; letter-spacing:-0.01em;">Spatial</span>
+        <span style="font:500 13px/1 'Zen Kaku Gothic New',sans-serif; color:#aeaeb2;">空間シーン</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button style="height:34px; padding:0 14px; border:none; background:rgba(0,0,0,0.05); border-radius:9px; font:600 13px 'Hanken Grotesk',sans-serif; color:#1d1d1f; cursor:pointer;">情報 Info</button>
+        <button style="height:34px; padding:0 16px; border:none; background:#1d1d1f; border-radius:9px; font:600 13px 'Hanken Grotesk',sans-serif; color:#fff; cursor:pointer;">＋ 新規 New</button>
+      </div>
+    </div>
+
+    <!-- stage -->
+    <div id="stStage" style="position:relative; flex:1; overflow:hidden; background:#eef1f4; min-height:0;">
+
+      <!-- ambient blurred backdrop (same image) -->
+      <div id="stAmbient" style="position:absolute; inset:0; overflow:hidden; pointer-events:none;">
+        <div style="position:absolute; inset:0; transform:scale(1.5); filter:blur(46px) saturate(1.15) brightness(0.97);">
+          <dc-import name="Scene" tone="dawn" strength="0.25" hint="{{ false }}" sid="ambient" hint-size="100%,100%" style="position:absolute; inset:0;"></dc-import>
+        </div>
+        <div style="position:absolute; inset:0; background:radial-gradient(120% 100% at 50% 40%, rgba(255,255,255,0) 50%, rgba(20,24,30,0.16) 100%);"></div>
+      </div>
+
+      <!-- contained / cover photo -->
+      <div id="stFrame" style="position:absolute; inset:0;">
+        <div id="stPhoto" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:60%; height:80%; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.10), 0 30px 60px -24px rgba(0,0,0,0.45);">
+          <dc-import name="Scene" tone="dawn" strength="1" hint="{{ true }}" sid="main" hint-size="100%,100%" style="position:absolute; inset:0;"></dc-import>
+        </div>
+      </div>
+
+      <!-- bottom control dock -->
+      <div style="position:absolute; bottom:18px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:20px; padding:14px 18px; background:rgba(255,255,255,0.78); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-radius:20px; box-shadow:0 1px 1px rgba(0,0,0,0.04), 0 12px 36px rgba(0,0,0,0.16); z-index:5;">
+        <div style="display:flex; flex-direction:column; gap:6px; width:228px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font:600 11px 'Hanken Grotesk',sans-serif; color:#6e6e73;">立体感 Depth</span><span data-out style="font:500 11px 'IBM Plex Mono',monospace; color:#1d1d1f;">0.55</span></div>
+          <input type="range" data-range data-fmt="x" min="0" max="1" step="0.05" value="0.55">
+        </div>
+        <div style="width:1px; height:40px; background:rgba(0,0,0,0.08);"></div>
+        <button title="中心へ戻す Reset" style="width:40px; height:40px; flex:none; border:none; border-radius:11px; background:rgba(0,0,0,0.05); color:#1d1d1f; font-size:17px; cursor:pointer;">⟲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== explainer row: three strategies ===== -->
+  <div style="width:1320px; display:flex; gap:22px; margin-top:6px;">
+    <div style="flex:1; background:#fff; border-radius:18px; padding:22px 24px; box-shadow:0 1px 3px rgba(0,0,0,0.05), 0 18px 44px -30px rgba(0,0,0,0.3); border-top:3px solid #0a84ff;">
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font:600 12px 'IBM Plex Mono',monospace; color:#0a84ff;">推奨</span><span style="font:700 17px 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif;">アンビエント背景</span></div>
+      <div style="font:400 13.5px/1.65 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:9px;">画像全体を中央に額装し、余白は同じ画像をぼかして拡大した背景で満たす。黒帯ゼロで没入感を保つ。実装は §17 の fallback backdrop をそのまま流用でき、追加コストが小さい。</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:18px; padding:22px 24px; box-shadow:0 1px 3px rgba(0,0,0,0.05), 0 18px 44px -30px rgba(0,0,0,0.3);">
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font:600 12px 'IBM Plex Mono',monospace; color:#86868b;">自動</span><span style="font:700 17px 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif;">Fit / Fill 自動判定</span></div>
+      <div style="font:400 13.5px/1.65 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:9px;">画像とステージのアスペクト差が小さければ Fill（画面を覆い、はみ出しを視差の余白に活用）。差が大きければ Fit（全体表示＋アンビエント）。手動切替も可能。</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:18px; padding:22px 24px; box-shadow:0 1px 3px rgba(0,0,0,0.05), 0 18px 44px -30px rgba(0,0,0,0.3);">
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font:600 12px 'IBM Plex Mono',monospace; color:#86868b;">別案</span><span style="font:700 17px 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif;">サイドパネル</span></div>
+      <div style="font:400 13.5px/1.65 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:9px;">Workbench 型。自由度は最大だがステージが狭まり Studio の没入感は弱まる。デスクトップの「調整」時だけパネルを引き出す折衷案が相性◎。</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 02 STATES — 読込前 / 読込中 (desktop)                          -->
+  <!-- ============================================================ -->
+  <div style="width:1320px; margin-top:34px;">
+    <div style="font:600 13px/1 'IBM Plex Mono',monospace; letter-spacing:0.16em; color:#86868b; text-transform:uppercase;">02 States · 読込前と読込中</div>
+    <div style="font:700 32px/1.12 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif; letter-spacing:-0.02em; margin-top:12px;">最初の一枚を迎える。待たせない。</div>
+    <div style="font:400 16px/1.6 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:10px; max-width:920px;">同じシェル（トップバー＋ステージ）のまま、中身だけが入れ替わる。<b style="color:#1d1d1f; font-weight:600;">読込前</b>は静かな招待状。<b style="color:#1d1d1f; font-weight:600;">読込中</b>は処理する画像をぼかして背景に敷き、進捗で完成形を予感させる — 黒い空白で待たせない。</div>
+  </div>
+
+  <div style="width:1320px; display:flex; gap:30px;">
+
+    <!-- ===== 読込前 (empty / pre-load) ===== -->
+    <div style="flex:1; height:580px; background:#fff; border-radius:24px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.05), 0 24px 60px -30px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
+      <div style="height:56px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 22px; border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:22px; height:22px; border-radius:7px; background:linear-gradient(145deg,#0a84ff,#5e5ce6);"></div>
+          <span style="font:700 16px/1 'Schibsted Grotesk',sans-serif; letter-spacing:-0.01em;">Spatial</span>
+          <span style="font:500 13px/1 'Zen Kaku Gothic New',sans-serif; color:#aeaeb2;">空間シーン</span>
+        </div>
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace; color:#c7c7cc; letter-spacing:0.06em;">読込前 · EMPTY</span>
+      </div>
+      <div style="position:relative; flex:1; background:#eef1f4; padding:30px; display:flex; flex-direction:column;">
+        <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 90% at 50% 30%, rgba(10,132,255,0.05), rgba(10,132,255,0) 55%), radial-gradient(120% 80% at 50% 110%, rgba(94,92,230,0.06), rgba(94,92,230,0) 60%);"></div>
+        <div style="position:relative; flex:1; border:1.6px dashed rgba(10,132,255,0.38); border-radius:20px; background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.35)); backdrop-filter:blur(2px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; text-align:center; padding:24px;">
+          <div style="width:66px; height:66px; border-radius:50%; background:rgba(10,132,255,0.1); display:flex; align-items:center; justify-content:center; font-size:28px; color:#0a84ff;">↑</div>
+          <div>
+            <div style="font:600 20px 'Zen Kaku Gothic New',sans-serif; color:#1d1d1f;">画像をドロップ</div>
+            <div style="font:400 13.5px 'Hanken Grotesk',sans-serif; color:#86868b; margin-top:4px;">Drag &amp; drop an image, or</div>
+          </div>
+          <button style="height:42px; padding:0 24px; border:none; border-radius:13px; background:#0a84ff; color:#fff; font:600 14px 'Hanken Grotesk',sans-serif; box-shadow:0 4px 14px rgba(10,132,255,0.35); cursor:pointer;">ファイルを選択 Choose file</button>
+          <div style="font:400 11px 'IBM Plex Mono',monospace; color:#c7c7cc;">JPEG · PNG · HEIC — 最大 4096px</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 読込中 (loading) ===== -->
+    <div style="flex:1; height:580px; background:#fff; border-radius:24px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.05), 0 24px 60px -30px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
+      <div style="height:56px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 22px; border-bottom:1px solid rgba(0,0,0,0.06); z-index:2;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:22px; height:22px; border-radius:7px; background:linear-gradient(145deg,#0a84ff,#5e5ce6);"></div>
+          <span style="font:700 16px/1 'Schibsted Grotesk',sans-serif; letter-spacing:-0.01em;">Spatial</span>
+          <span style="font:500 13px/1 'Zen Kaku Gothic New',sans-serif; color:#aeaeb2;">空間シーン</span>
+        </div>
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace; color:#0a84ff; letter-spacing:0.06em;">読込中 · WORKING</span>
+      </div>
+      <div style="position:relative; flex:1; overflow:hidden; background:#eef1f4;">
+        <div style="position:absolute; inset:0; overflow:hidden;">
+          <div style="position:absolute; inset:-40px; background:linear-gradient(180deg,#bcd3e8,#e7eef3 55%,#f6efe6); filter:blur(34px);"></div>
+          <div style="position:absolute; left:-12%; bottom:0; width:124%; height:46%; background:#2f3e4d; filter:blur(26px); border-radius:50% 48% 0 0/90% 100% 0 0; opacity:0.55;"></div>
+          <div style="position:absolute; left:50%; top:24%; width:200px; height:200px; margin-left:-100px; margin-top:-100px; border-radius:50%; background:radial-gradient(circle, rgba(255,246,230,0.85), rgba(255,246,230,0) 70%); filter:blur(12px);"></div>
+          <div style="position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 42%, rgba(255,255,255,0.45) 30%, rgba(20,24,30,0.12) 100%);"></div>
+        </div>
+        <div style="position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:26px;">
+          <div style="position:relative; width:84px; height:84px;">
+            <div style="position:absolute; inset:0; border-radius:50%; border:4px solid rgba(10,132,255,0.16);"></div>
+            <div style="position:absolute; inset:0; border-radius:50%; border:4px solid transparent; border-top-color:#0a84ff; animation:ringSpin 0.9s linear infinite;"></div>
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font:600 19px 'IBM Plex Mono',monospace; color:#1d1d1f;">62%</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font:600 19px 'Zen Kaku Gothic New',sans-serif; color:#1d1d1f;">深度を推定中</div>
+            <div style="font:400 13px 'Hanken Grotesk',sans-serif; color:#6e6e73; margin-top:4px;">Estimating depth · Depth Anything V2 Base</div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:7px 14px; justify-content:center; max-width:380px;">
+            <span style="font:500 11px 'IBM Plex Mono',monospace; color:#34c759;">✓ model</span>
+            <span style="font:500 11px 'IBM Plex Mono',monospace; color:#34c759;">✓ preprocess</span>
+            <span style="font:500 11px 'IBM Plex Mono',monospace; color:#0a84ff;">◌ depth</span>
+            <span style="font:500 11px 'IBM Plex Mono',monospace; color:#c7c7cc;">○ mesh</span>
+          </div>
+          <button style="height:40px; padding:0 22px; border:1px solid rgba(0,0,0,0.12); border-radius:12px; background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); color:#1d1d1f; font:600 14px 'Hanken Grotesk',sans-serif; cursor:pointer;">キャンセル Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 03 MOBILE — 読込前 → 読込中 → ビューア                          -->
+  <!-- ============================================================ -->
+  <div style="width:1320px; margin-top:34px;">
+    <div style="font:600 13px/1 'IBM Plex Mono',monospace; letter-spacing:0.16em; color:#86868b; text-transform:uppercase;">03 Mobile · モバイルレイアウト</div>
+    <div style="font:700 32px/1.12 'Schibsted Grotesk','Zen Kaku Gothic New',sans-serif; letter-spacing:-0.02em; margin-top:12px;">片手で、空間に触れる。</div>
+    <div style="font:400 16px/1.6 'Hanken Grotesk','Zen Kaku Gothic New',sans-serif; color:#6e6e73; margin-top:10px; max-width:920px;">縦画面では操作を<b style="color:#1d1d1f; font-weight:600;">下部シート</b>に集約し、ステージを最大化。横長画像はアンビエント背景で上下を満たす（黒帯なし）。指で直接ドラッグして視点を動かす。</div>
+  </div>
+
+  <div style="width:1320px; display:flex; justify-content:center; align-items:flex-start; gap:34px; flex-wrap:wrap;">
+
+    <!-- PHONE 1 — 読込前 -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+      <div style="width:300px; height:620px; border-radius:44px; background:#000; padding:10px; box-shadow:0 30px 70px -30px rgba(0,0,0,0.5);">
+        <div style="position:relative; width:100%; height:100%; border-radius:34px; overflow:hidden; background:#f4f5f8; display:flex; flex-direction:column;">
+          <div style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:116px; height:25px; background:#000; border-radius:0 0 15px 15px; z-index:6;"></div>
+          <div style="flex:none; height:58px; padding:0 18px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+              <div style="width:20px; height:20px; border-radius:6px; background:linear-gradient(145deg,#0a84ff,#5e5ce6);"></div>
+              <span style="font:700 15px 'Schibsted Grotesk',sans-serif;">Spatial</span>
+            </div>
+          </div>
+          <div style="flex:1; padding:6px 16px 18px; display:flex; flex-direction:column;">
+            <div style="flex:1; border:1.5px dashed rgba(10,132,255,0.4); border-radius:20px; background:linear-gradient(180deg, rgba(10,132,255,0.05), rgba(10,132,255,0.01)); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:13px; text-align:center; padding:18px;">
+              <div style="width:56px; height:56px; border-radius:50%; background:rgba(10,132,255,0.1); display:flex; align-items:center; justify-content:center; font-size:24px; color:#0a84ff;">↑</div>
+              <div>
+                <div style="font:600 17px 'Zen Kaku Gothic New',sans-serif;">写真を選ぶ</div>
+                <div style="font:400 12px 'Hanken Grotesk',sans-serif; color:#86868b; margin-top:3px;">Choose a photo</div>
+              </div>
+            </div>
+            <button style="margin-top:14px; height:48px; border:none; border-radius:14px; background:#0a84ff; color:#fff; font:600 15px 'Hanken Grotesk',sans-serif; box-shadow:0 4px 14px rgba(10,132,255,0.35); cursor:pointer;">＋ 画像を追加</button>
+          </div>
+        </div>
+      </div>
+      <span style="font:500 12px 'IBM Plex Mono',monospace; color:#86868b;">読込前</span>
+    </div>
+
+    <!-- PHONE 2 — 読込中 -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+      <div style="width:300px; height:620px; border-radius:44px; background:#000; padding:10px; box-shadow:0 30px 70px -30px rgba(0,0,0,0.5);">
+        <div style="position:relative; width:100%; height:100%; border-radius:34px; overflow:hidden; background:#eef1f4; display:flex; flex-direction:column;">
+          <div style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:116px; height:25px; background:#000; border-radius:0 0 15px 15px; z-index:6;"></div>
+          <div style="position:absolute; inset:0; overflow:hidden;">
+            <div style="position:absolute; inset:-40px; background:linear-gradient(180deg,#bcd3e8,#e7eef3 55%,#f6efe6); filter:blur(32px);"></div>
+            <div style="position:absolute; left:-12%; bottom:0; width:124%; height:48%; background:#2f3e4d; filter:blur(24px); border-radius:50% 48% 0 0/90% 100% 0 0; opacity:0.55;"></div>
+            <div style="position:absolute; inset:0; background:radial-gradient(120% 80% at 50% 42%, rgba(255,255,255,0.4) 28%, rgba(20,24,30,0.14) 100%);"></div>
+          </div>
+          <div style="position:relative; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; padding:24px;">
+            <div style="position:relative; width:78px; height:78px;">
+              <div style="position:absolute; inset:0; border-radius:50%; border:4px solid rgba(10,132,255,0.16);"></div>
+              <div style="position:absolute; inset:0; border-radius:50%; border:4px solid transparent; border-top-color:#0a84ff; animation:ringSpin 0.9s linear infinite;"></div>
+              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font:600 17px 'IBM Plex Mono',monospace; color:#1d1d1f;">62%</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font:600 17px 'Zen Kaku Gothic New',sans-serif;">深度を推定中</div>
+              <div style="font:400 12px 'Hanken Grotesk',sans-serif; color:#6e6e73; margin-top:3px;">Estimating depth</div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px 10px; justify-content:center;">
+              <span style="font:500 10px 'IBM Plex Mono',monospace; color:#34c759;">✓ model</span>
+              <span style="font:500 10px 'IBM Plex Mono',monospace; color:#34c759;">✓ preprocess</span>
+              <span style="font:500 10px 'IBM Plex Mono',monospace; color:#0a84ff;">◌ depth</span>
+              <span style="font:500 10px 'IBM Plex Mono',monospace; color:#c7c7cc;">○ mesh</span>
+            </div>
+            <button style="height:38px; padding:0 20px; border:1px solid rgba(0,0,0,0.12); border-radius:12px; background:rgba(255,255,255,0.82); backdrop-filter:blur(10px); color:#1d1d1f; font:600 13px 'Hanken Grotesk',sans-serif; cursor:pointer;">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <span style="font:500 12px 'IBM Plex Mono',monospace; color:#86868b;">読込中</span>
+    </div>
+
+    <!-- PHONE 3 — ビューア (aspect handling on mobile) -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+      <div style="width:300px; height:620px; border-radius:44px; background:#000; padding:10px; box-shadow:0 30px 70px -30px rgba(0,0,0,0.5);">
+        <div style="position:relative; width:100%; height:100%; border-radius:34px; overflow:hidden; background:#0a0a0b; display:flex; flex-direction:column;">
+          <div style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:116px; height:25px; background:#000; border-radius:0 0 15px 15px; z-index:6;"></div>
+          <div style="position:relative; flex:1; overflow:hidden;">
+            <div style="position:absolute; inset:0; overflow:hidden; pointer-events:none;">
+              <div style="position:absolute; inset:0; transform:scale(1.6); filter:blur(40px) saturate(1.15) brightness(0.97);">
+                <dc-import name="Scene" tone="dawn" strength="0.2" hint="{{ false }}" sid="mAmbient" hint-size="100%,100%" style="position:absolute; inset:0;"></dc-import>
+              </div>
+              <div style="position:absolute; inset:0; background:radial-gradient(120% 100% at 50% 40%, rgba(255,255,255,0) 46%, rgba(20,24,30,0.22) 100%);"></div>
+            </div>
+            <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:88%; aspect-ratio:16/9; border-radius:14px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.18), 0 24px 50px -20px rgba(0,0,0,0.5);">
+              <dc-import name="Scene" tone="dawn" strength="1.1" hint="{{ false }}" sid="mMain" hint-size="100%,100%" style="position:absolute; inset:0;"></dc-import>
+            </div>
+            <div style="position:absolute; left:14px; bottom:14px; display:flex; align-items:center; gap:6px; padding:6px 11px; background:rgba(255,255,255,0.8); backdrop-filter:blur(12px); border-radius:9px; box-shadow:0 4px 14px rgba(0,0,0,0.12); z-index:4;">
+              <span style="width:6px; height:6px; border-radius:50%; background:#0a84ff;"></span>
+              <span style="font:600 10px 'IBM Plex Mono',monospace; color:#1d1d1f; letter-spacing:0.04em;">全体 Fit · 16:9</span>
+            </div>
+          </div>
+          <div style="flex:none; background:#fff; border-radius:24px 24px 0 0; box-shadow:0 -8px 24px rgba(0,0,0,0.1); padding:12px 18px 22px; margin-top:-26px; position:relative; z-index:5;">
+            <div style="width:38px; height:5px; border-radius:3px; background:rgba(0,0,0,0.15); margin:0 auto 14px;"></div>
+            <div style="display:flex; flex-direction:column; gap:13px;">
+              <div style="display:flex; flex-direction:column; gap:6px;"><div style="display:flex; justify-content:space-between;"><span style="font:600 12px 'Hanken Grotesk',sans-serif; color:#6e6e73;">立体感 Depth</span><span data-out style="font:500 11px 'IBM Plex Mono',monospace; color:#1d1d1f;">0.55</span></div><input type="range" data-range data-fmt="x" min="0" max="1" step="0.05" value="0.55"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span style="font:500 12px 'IBM Plex Mono',monospace; color:#86868b;">ビューア · ドラッグで視点移動</span>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { sample: 0, fit: 'fit' };
+
+  componentDidMount() {
+    this.stage = document.getElementById('stStage');
+    this.photo = document.getElementById('stPhoto');
+    this.ambient = document.getElementById('stAmbient');
+
+    // range readouts
+    document.querySelectorAll('[data-range]').forEach(inp => {
+      const out = inp.parentElement && inp.parentElement.querySelector('[data-out]');
+      const fmt = inp.getAttribute('data-fmt');
+      const upd = () => { if (out) out.textContent = (fmt === 'x' ? Number(inp.value).toFixed(2) : inp.value); };
+      inp.addEventListener('input', upd);
+      inp.addEventListener('pointerdown', e => e.stopPropagation());
+      upd();
+    });
+    this.ro = new ResizeObserver(() => this.layout());
+    this.ro.observe(this.stage);
+    this.layout();
+  }
+  componentDidUpdate() { this.layout(); }
+  componentWillUnmount() { if (this.ro) this.ro.disconnect(); }
+
+  layout() {
+    if (!this.stage) return;
+    const samples = [
+      { ar: 0.75,  label: '縦長 3:4',     meta: '1536×2048' },
+      { ar: 1.778, label: '横長 16:9',    meta: '2400×1350' },
+      { ar: 1.0,   label: '正方形 1:1',   meta: '1600×1600' },
+      { ar: 2.5,   label: 'パノラマ 5:2', meta: '3000×1200' },
+    ];
+    const s = samples[this.state.sample] || samples[0];
+    const sw = this.stage.clientWidth, sh = this.stage.clientHeight;
+    if (!sw || !sh) return;
+    const stageAR = sw / sh, imgAR = s.ar;
+
+    const mode = 'fit';
+
+    let pw, ph, radius, shadow, ambientOn;
+    if (mode === 'fill') {
+      // cover: photo fills/overflows stage, cropped edges become parallax headroom
+      if (imgAR > stageAR) { ph = sh; pw = sh * imgAR; } else { pw = sw; ph = sw / imgAR; }
+      radius = 0; ambientOn = false;
+      shadow = 'none';
+    } else {
+      // contain: whole photo visible, framed, ambient fills the rest
+      const pad = 0.86; // breathing room around the framed photo
+      if (imgAR > stageAR) { pw = sw * pad; ph = pw / imgAR; } else { ph = sh * pad; pw = ph * imgAR; }
+      radius = 16; ambientOn = true;
+      shadow = '0 4px 14px rgba(0,0,0,0.10), 0 30px 60px -24px rgba(0,0,0,0.45)';
+    }
+
+    this.photo.style.width = Math.round(pw) + 'px';
+    this.photo.style.height = Math.round(ph) + 'px';
+    this.photo.style.borderRadius = radius + 'px';
+    this.photo.style.boxShadow = shadow;
+    this.ambient.style.opacity = ambientOn ? '1' : '0';
+  }
+
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
