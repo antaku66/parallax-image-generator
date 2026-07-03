@@ -1,6 +1,6 @@
 # 主要モジュール
 
-最終更新日: 2026-07-02
+最終更新日: 2026-07-03
 
 ## 1. データモデル（`src/types/`）
 
@@ -11,7 +11,7 @@ type SpatialSceneAsset = {
   version: number;
   source: SourceImageAsset;      // 表示用 ImageBitmap + 寸法 + hash
   depthMap: FloatDepthMap | QuantizedDepthMap; // 0=far/1=near
-  layers: SceneLayer[];          // 背景（インペイント）+ 前景（切抜）
+  layers: SceneLayer[];          // 単層（連続メッシュ）または 背景（インペイント）+ 前景（切抜）
   metadata: SceneMetadata;
 };
 ```
@@ -29,9 +29,9 @@ type SpatialSceneAsset = {
 
 ## 3. レンダラー（`src/services/render/`）
 
-- `LayeredRenderer`: `WebGLRenderer`（DPR キャップ）+ `PerspectiveCamera`。背景=不透明・前景=アルファの複数深度メッシュを 1 カメラで描画（背景は微オーバースケールで縁のはみ出しを防ぐ）。`setAsset` で旧 geometry/material/texture を `disposeMesh` してから再構築。`dispose` は `renderer.dispose()` のみ（`forceContextLoss()` は呼ばない）。canvas は React 所有・再利用のため、コンテキストを破棄すると StrictMode の再マウントで復帰できず CSS フォールバックに落ちる。
-- `DragCameraController`: Pointer Events、`setPointerCapture`、clamp `[-1,1]`、`maxOffset`/`smoothing`、release で中心復帰。
-- `threeResources.ts`: `textureFromBitmap`（sRGB, flipY=false）/ `geometryFromSceneMesh`（Uint32 index）/ `disposeMesh`。
+- `LayeredRenderer`: `WebGLRenderer`（DPR キャップ）+ `PerspectiveCamera`。先頭レイヤー=不透明・以降=アルファの複数深度メッシュを 1 カメラで描画（最背面の縁のはみ出し防止は buildLayers の外周ガターがメッシュ位置に焼き込み済み）。`setAsset` で旧 geometry/material/texture を `disposeMesh` してから再構築。`dispose` は `renderer.dispose()` のみ（`forceContextLoss()` は呼ばない）。canvas は React 所有・再利用のため、コンテキストを破棄すると StrictMode の再マウントで復帰できず CSS フォールバックに落ちる。
+- `DragCameraController`: Pointer Events、`setPointerCapture`、clamp `[-1,1]`、`maxOffset`/`smoothing`、release で中心復帰。カメラは回転させず平行移動のみとし、off-axis projection（非対称視錐台）で z=0 の画像面を画面に固定する（台形歪み・絵全体の泳ぎを防ぐ）。
+- `threeResources.ts`: `textureFromBitmap`（sRGB, flipY=false, ミップマップ + 異方性フィルタ）/ `geometryFromSceneMesh`（Uint32 index）/ `disposeMesh`。
 
 ## 4. 状態管理（`src/store/`）
 
