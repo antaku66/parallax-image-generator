@@ -31,6 +31,36 @@ export function upsampleBilinear(
   return out;
 }
 
+/** 最小値フィルタ（収縮）。半径 r の分離型。境界はクランプ。前景アルファのチョークに使う。 */
+export function erodeMin(mask: Float32Array, w: number, h: number, r: number): Float32Array {
+  if (r <= 0) return mask;
+  const tmp = new Float32Array(mask.length);
+  const out = new Float32Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let m = 1;
+      for (let k = -r; k <= r; k++) {
+        const sx = Math.min(w - 1, Math.max(0, x + k));
+        const v = mask[y * w + sx];
+        if (v < m) m = v;
+      }
+      tmp[y * w + x] = m;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      let m = 1;
+      for (let k = -r; k <= r; k++) {
+        const sy = Math.min(h - 1, Math.max(0, y + k));
+        const v = tmp[sy * w + x];
+        if (v < m) m = v;
+      }
+      out[y * w + x] = m;
+    }
+  }
+  return out;
+}
+
 /** 最大値フィルタ（膨張）。半径 r の分離型。境界はクランプ。前景マスクの拡張に使う。 */
 export function dilateMax(mask: Float32Array, w: number, h: number, r: number): Float32Array {
   if (r <= 0) return mask;

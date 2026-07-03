@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { upsampleBilinear, dilateMax } from "../maskOps";
+import { upsampleBilinear, dilateMax, erodeMin } from "../maskOps";
 
 describe("upsampleBilinear", () => {
   it("拡大しても端点値を保持し、寸法が変わる", () => {
@@ -33,5 +33,35 @@ describe("dilateMax", () => {
   it("r<=0 はそのまま返す", () => {
     const m = Float32Array.from([0, 1, 0, 1]);
     expect(dilateMax(m, 2, 2, 0)).toBe(m);
+  });
+});
+
+describe("erodeMin", () => {
+  it("孤立した穴（0）を半径分だけ広げる（マスクを収縮させる）", () => {
+    const w = 5;
+    const h = 5;
+    const m = new Float32Array(w * h).fill(1);
+    m[2 * w + 2] = 0; // 中央に穴
+    const out = erodeMin(m, w, h, 1);
+    // 中央 3x3 が 0 になる
+    for (let y = 1; y <= 3; y++) for (let x = 1; x <= 3; x++) expect(out[y * w + x]).toBe(0);
+    expect(out[0]).toBe(1); // 角は届かない
+  });
+
+  it("dilateMax の双対（1-erode(m) == dilate(1-m)）", () => {
+    const w = 6;
+    const h = 4;
+    const m = Float32Array.from({ length: w * h }, (_, i) => ((i * 13) % 7) / 6);
+    const inv = Float32Array.from(m, (v) => 1 - v);
+    const eroded = erodeMin(m, w, h, 2);
+    const dilatedInv = dilateMax(inv, w, h, 2);
+    for (let i = 0; i < m.length; i++) {
+      expect(1 - eroded[i]).toBeCloseTo(dilatedInv[i], 5);
+    }
+  });
+
+  it("r<=0 はそのまま返す", () => {
+    const m = Float32Array.from([0, 1, 0, 1]);
+    expect(erodeMin(m, 2, 2, 0)).toBe(m);
   });
 });

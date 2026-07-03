@@ -41,4 +41,27 @@ describe("splitDepthLayers", () => {
       expect(v).toBeLessThanOrEqual(1);
     }
   });
+
+  it("分離度: 明確な二峰は高く、連続的な一様分布は低い", () => {
+    const w = 16;
+    const h = 16;
+    // 二峰: far 0.1 / near 0.9 の半々
+    const bimodal: number[] = [];
+    for (let i = 0; i < w * h; i++) bimodal.push(i < (w * h) / 2 ? 0.1 : 0.9);
+    // 連続: 0..1 の一様な傾斜（風景の奥行きの近似）
+    const ramp = Array.from({ length: w * h }, (_, i) => i / (w * h - 1));
+
+    const sBimodal = splitDepthLayers(fdm(bimodal, w, h)).separability;
+    const sRamp = splitDepthLayers(fdm(ramp, w, h)).separability;
+
+    expect(sBimodal).toBeGreaterThan(0.95); // 2 値なら η ≈ 1
+    expect(sRamp).toBeLessThan(0.8); // 一様分布は η ≈ 0.75
+    expect(sBimodal).toBeGreaterThan(sRamp);
+  });
+
+  it("分離度は定数深度で 0（全分散ゼロの退化ケース）", () => {
+    const d = new Array(16).fill(0.5);
+    const { separability } = splitDepthLayers(fdm(d, 4, 4));
+    expect(separability).toBe(0);
+  });
 });

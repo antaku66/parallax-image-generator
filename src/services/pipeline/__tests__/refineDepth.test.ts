@@ -1,6 +1,43 @@
 import { describe, it, expect } from "vitest";
-import { refineDepth } from "../refineDepth";
+import { boxFilter, refineDepth } from "../refineDepth";
 import type { FloatDepthMap } from "../../../types";
+
+// クランプ境界の素朴実装（移動和実装の検証基準）
+function boxFilterNaive(src: Float32Array, w: number, h: number, r: number): Float32Array {
+  const win = r * 2 + 1;
+  const tmp = new Float32Array(src.length);
+  const dst = new Float32Array(src.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) sum += src[y * w + Math.min(w - 1, Math.max(0, x + k))];
+      tmp[y * w + x] = sum / win;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      let sum = 0;
+      for (let k = -r; k <= r; k++) sum += tmp[Math.min(h - 1, Math.max(0, y + k)) * w + x];
+      dst[y * w + x] = sum / win;
+    }
+  }
+  return dst;
+}
+
+describe("boxFilter", () => {
+  it("移動和実装が素朴実装と一致する（半径が寸法を超えるケース含む）", () => {
+    const w = 7;
+    const h = 5;
+    const src = Float32Array.from({ length: w * h }, (_, i) => ((i * 31) % 17) / 16);
+    for (const r of [1, 2, 4, 8]) {
+      const fast = boxFilter(src, w, h, r);
+      const naive = boxFilterNaive(src, w, h, r);
+      for (let i = 0; i < src.length; i++) {
+        expect(fast[i]).toBeCloseTo(naive[i], 5);
+      }
+    }
+  });
+});
 
 function fdm(data: number[], w: number, h: number): FloatDepthMap {
   return { kind: "float32", width: w, height: h, data: Float32Array.from(data) };

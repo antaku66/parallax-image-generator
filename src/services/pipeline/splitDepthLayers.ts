@@ -9,10 +9,18 @@ export type DepthSplit = {
   threshold: number;
   /** 前景アルファ（[0,1], near=1）。深度と同寸・同順 */
   foreground: Float32Array;
+  /**
+   * Otsu 分離度 η = クラス間分散 / 全分散（[0,1]）。
+   * 低いほど深度分布が連続的で 2 層分割に向かない。
+   * 目安: 明確な二峰 > 0.85、一様分布（連続的な奥行き）≈ 0.75、単一ガウス ≈ 0.64。
+   */
+  separability: number;
 };
 
-// Otsu 法: クラス間分散を最大化するしきい値を求める
-function otsuThreshold(depth: Float32Array, bins = 256): number {
+type OtsuResult = { threshold: number; separability: number };
+
+// Otsu 法: クラス間分散を最大化するしきい値と分離度を求める
+function otsuThreshold(depth: Float32Array, bins = 256): OtsuResult {
   const hist = new Float32Array(bins);
   for (let i = 0; i < depth.length; i++) {
     const b = Math.min(bins - 1, Math.max(0, Math.round(depth[i] * (bins - 1))));
@@ -46,7 +54,16 @@ function otsuThreshold(depth: Float32Array, bins = 256): number {
       hi = i;
     }
   }
-  return (lo + hi) / 2 / (bins - 1);
+
+  // 全分散（bin 単位）に対する最大クラス間分散の比（η）
+  const mean = sumAll / total;
+  let varT = 0;
+  for (let i = 0; i < bins; i++) varT += hist[i] * (i - mean) * (i - mean);
+  varT /= total;
+  const sigmaB = maxVar > 0 ? maxVar / (total * total) : 0;
+  const separability = varT > 1e-9 ? Math.min(1, sigmaB / varT) : 0;
+
+  return { threshold: (lo + hi) / 2 / (bins - 1), separability };
 }
 
 export function splitDepthLayers(
@@ -56,7 +73,8 @@ export function splitDepthLayers(
   maxThreshold = 0.85
 ): DepthSplit {
   // 退化した分割（前景が画面全体/皆無）を避けるため範囲をクランプ
-  const threshold = clamp(otsuThreshold(depth.data), minThreshold, maxThreshold);
+  const otsu = otsuThreshold(depth.data);
+  const threshold = clamp(otsu.threshold, minThreshold, maxThreshold);
 
   const foreground = new Float32Array(depth.data.length);
   const lo = threshold - margin;
@@ -67,5 +85,5 @@ export function splitDepthLayers(
     const t = clamp((depth.data[i] - lo) / span, 0, 1);
     foreground[i] = t * t * (3 - 2 * t);
   }
-  return { threshold, foreground };
+  return { threshold, foreground, separability: otsu.separability };
 }
