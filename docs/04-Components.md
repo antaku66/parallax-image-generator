@@ -1,6 +1,6 @@
 # 主要モジュール
 
-最終更新日: 2026-07-03
+最終更新日: 2026-07-05
 
 ## 1. データモデル（`src/types/`）
 
@@ -66,5 +66,6 @@ Studio デザイン（`design_handoff_spatial_scene/Studio Viewer.dc.html`）を
 - ビューア: `AmbientBackdrop`（同一画像 blur）/ `PhotoFrame`（額装）/ `SceneCanvas`（Three）/ `CssFallbackViewer`（layers 無し時）/ `FitBadge`。
 - コントロール: `ControlDock`（下部・デスクトップ）/ `DepthSlider`（pointerdown を stopPropagation）/ `ResetButton`。
 - モバイル: `MobileSheet`（下部シート）。
+- モーダル: `InfoModal`（アプリ説明 + キャッシュ一括削除。`clearAllCaches` = シーン IndexedDB + `spatial-scene-` プレフィックスの Cache Storage を削除）。
 
 デザイントークンは `index.css` の `@theme`（色 `--color-accent #0a84ff` ほか、フォント Hanken/Schibsted/Zen Kaku/IBM Plex Mono）。

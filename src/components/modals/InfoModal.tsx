@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Button } from "../ui/Button";
+import { clearAllCaches } from "../../services/cache/clearCaches";
 
 const FEATURES = [
   "1枚の画像から擬似的な空間シーンを生成（クライアント完結）",
@@ -7,11 +9,36 @@ const FEATURES = [
   "モデル未配置/推論失敗時は簡易表示へ自動フォールバック",
 ];
 
+type ClearStatus = "idle" | "busy" | "done" | "error";
+
+const CLEAR_LABELS: Record<ClearStatus, string> = {
+  idle: "キャッシュを削除 Clear cache",
+  busy: "削除中…",
+  done: "削除しました ✓",
+  error: "削除に失敗しました",
+};
+
 export function InfoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [clearStatus, setClearStatus] = useState<ClearStatus>("idle");
   if (!open) return null;
+
+  const close = () => {
+    setClearStatus("idle");
+    onClose();
+  };
+  const onClear = async () => {
+    setClearStatus("busy");
+    try {
+      await clearAllCaches();
+      setClearStatus("done");
+    } catch {
+      setClearStatus("error");
+    }
+  };
+
   return (
     <div
-      onClick={onClose}
+      onClick={close}
       style={{
         position: "fixed",
         inset: 0,
@@ -57,8 +84,32 @@ export function InfoModal({ open, onClose }: { open: boolean; onClose: () => voi
             </li>
           ))}
         </ul>
+        <div
+          style={{
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: "1px solid rgba(0,0,0,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <p style={{ font: "400 12px/1.6 var(--font-sans)", color: "#6e6e73", margin: 0 }}>
+            保存済みシーン（IndexedDB）と深度モデル・アプリシェルのキャッシュ（Cache
+            Storage）を削除します。
+          </p>
+          <Button
+            variant="soft"
+            onClick={onClear}
+            disabled={clearStatus === "busy"}
+            style={{ height: 34, padding: "0 14px", borderRadius: 9, fontSize: 12, flex: "none" }}
+          >
+            {CLEAR_LABELS[clearStatus]}
+          </Button>
+        </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-          <Button variant="dark" onClick={onClose} style={{ height: 38, padding: "0 18px", borderRadius: 10 }}>
+          <Button variant="dark" onClick={close} style={{ height: 38, padding: "0 18px", borderRadius: 10 }}>
             閉じる
           </Button>
         </div>

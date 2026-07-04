@@ -24,3 +24,9 @@ export async function putScene(
   const db = await getDB();
   await db.put(SCENES_STORE, asset, sceneCacheKeyString(key));
 }
+
+/** 保存済みシーンを全削除する。clear は versionchange を伴わず Worker 側接続と共存できる */
+export async function clearScenes(): Promise<void> {
+  const db = await getDB();
+  await db.clear(SCENES_STORE);
+}
