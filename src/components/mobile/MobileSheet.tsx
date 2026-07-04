@@ -1,6 +1,7 @@
-// モバイル下部シート（グラバー + Depth スライダー）
+// モバイル下部シート（グラバー + Depth/Parallax スライダー）
 
 import { DepthSlider } from "../controls/DepthSlider";
+import { ParallaxSlider } from "../controls/ParallaxSlider";
 
 export function MobileSheet() {
   return (
@@ -28,6 +29,7 @@ export function MobileSheet() {
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <DepthSlider fullWidth />
+        <ParallaxSlider fullWidth />
       </div>
     </div>
   );
