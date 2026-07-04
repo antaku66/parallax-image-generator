@@ -8,6 +8,7 @@ import { SceneCanvas } from "../viewer/SceneCanvas";
 import { CssFallbackViewer } from "../viewer/CssFallbackViewer";
 import { DragHint } from "../viewer/DragHint";
 import { FitBadge } from "../viewer/FitBadge";
+import { PerfBadge } from "../viewer/PerfBadge";
 import { ControlDock } from "../controls/ControlDock";
 import { MobileSheet } from "../mobile/MobileSheet";
 
@@ -41,6 +42,8 @@ export function ViewerState() {
           <DragHint key={asset?.source.imageHash ?? "none"} />
         </PhotoFrame>
       )}
+      {/* フォールバック資産（layers 空）は metadata がダミー値のため表示しない */}
+      {hasScene && asset && <PerfBadge metadata={asset.metadata} />}
       {isMobile ? <MobileSheet /> : <ControlDock />}
       {isMobile && asset && (
         <FitBadge

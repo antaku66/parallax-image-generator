@@ -31,7 +31,7 @@ export function LoadingState() {
         <div style={{ textAlign: "center" }}>
           <div style={{ font: "600 19px var(--font-jp)", color: "#1d1d1f" }}>深度を推定中</div>
           <div style={{ font: "400 13px var(--font-sans)", color: "#6e6e73", marginTop: 4 }}>
-            Estimating depth · Depth Anything V2 Small
+            Estimating depth · Depth Anything V2 Base
           </div>
         </div>
         <StageChips stage={progress.stage} size={isMobile ? "sm" : "md"} />
