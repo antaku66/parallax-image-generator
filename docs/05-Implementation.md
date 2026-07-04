@@ -17,7 +17,7 @@
 | PR7 | LayeredRenderer、DragCameraController、Three.js リソース管理 | 実装済み |
 | PR8 | Worker 分離、進捗イベント、キャンセル対応、Transferable 対応 | 実装済み |
 | PR9 | IndexedDB キャッシュ、Cache Storage、Service Worker | 実装済み（IndexedDB + モデル Cache Storage + SW〔シェル SWR / 静的資産・ORT wasm cache-first〕+ キャッシュ一括削除） |
-| PR10 | パラメータ UI、エラー表示、パフォーマンス表示 | 一部（Depth スライダー/Reset、エラー UI、`durationMs` 記録） |
+| PR10 | パラメータ UI、エラー表示、パフォーマンス表示 | 実装済み（Depth/Parallax スライダー、Reset、エラー UI、パフォーマンスバッジ。layer count・mask feather・inpainting 有無・backdrop blur の Worker パラメータ化は再処理とキャッシュキー設計を要するため見送り） |
 | PR11 | テスト、サンプル画像での回帰確認、README 整備 | 一部（純ロジックのユニットテスト + README） |
 
 segmentation・多層分割は独立した処理として後から追加できる構成にしてある（追加しても既存の描画・キャッシュ経路は変わらない。`LayeredRenderer` は任意レイヤー数に対応済み）。パイプラインの処理内容を変えた場合は `constants/versions.ts` の `PROCESSING_VERSION` を上げてキャッシュを無効化する。

@@ -41,7 +41,7 @@ type SpatialSceneAsset = {
 | --- | --- | --- | --- |
 | `appState` | process | useProcessing, TopBar(New) | App ルーティング |
 | `progress` | process | worker progress | ProgressRing, StageChips |
-| `params` | params | DepthSlider | useRenderer.setParameters |
+| `params` | params | DepthSlider, ParallaxSlider | useRenderer.setParameters |
 | `camera` / `recenterToken` | camera | DragCameraController, ResetButton | useRenderer.setCamera |
 | `fitMode` / `fitModeLocked` | asset | useStageLayout | AmbientBackdrop, PhotoFrame |
 | `asset` / `sourceThumbnail` | asset | worker complete | useRenderer, ViewerState |
@@ -63,8 +63,8 @@ Studio デザイン（`design_handoff_spatial_scene/Studio Viewer.dc.html`）を
 
 - シェル: `StudioShell`（100dvh 縦）/ `TopBar`（ロゴ・Info・New）/ `Stage`（`#eef1f4`）。
 - 状態: `EmptyState`（DropZone）/ `LoadingState`（AmbientBackdrop + ProgressRing + StageChips + Cancel）/ `ViewerState` / `ErrorState`。
-- ビューア: `AmbientBackdrop`（同一画像 blur）/ `PhotoFrame`（額装）/ `SceneCanvas`（Three）/ `CssFallbackViewer`（layers 無し時）/ `FitBadge`。
-- コントロール: `ControlDock`（下部・デスクトップ）/ `DepthSlider`（pointerdown を stopPropagation）/ `ResetButton`。
+- ビューア: `AmbientBackdrop`（同一画像 blur）/ `PhotoFrame`（額装）/ `SceneCanvas`（Three）/ `CssFallbackViewer`（layers 無し時）/ `FitBadge` / `PerfBadge`（backend・推論辺長・処理時間。処理時間は生成時の値でキャッシュ再表示でも保持。フォールバック資産では非表示）。
+- コントロール: `ControlDock`（下部・デスクトップ）/ `ParamSlider`（共通見た目。pointerdown を stopPropagation）/ `DepthSlider` / `ParallaxSlider` / `ResetButton`。
 - モバイル: `MobileSheet`（下部シート）。
 - モーダル: `InfoModal`（アプリ説明 + キャッシュ一括削除。`clearAllCaches` = シーン IndexedDB + `spatial-scene-` プレフィックスの Cache Storage を削除）。
 
