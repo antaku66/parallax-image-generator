@@ -32,8 +32,8 @@ parallax/
 │   ├── components/
 │   │   ├── shell/                  # StudioShell / TopBar / Stage
 │   │   ├── states/                 # EmptyState / LoadingState / ViewerState / ErrorState
-│   │   ├── viewer/                 # SceneCanvas / AmbientBackdrop / PhotoFrame / CssFallbackViewer / DragHint / FitBadge
-│   │   ├── controls/               # ControlDock / DepthSlider / ResetButton
+│   │   ├── viewer/                 # SceneCanvas / AmbientBackdrop / PhotoFrame / CssFallbackViewer / DragHint / FitBadge / PerfBadge
+│   │   ├── controls/               # ControlDock / ParamSlider / DepthSlider / ParallaxSlider / ResetButton
 │   │   ├── mobile/                 # MobileSheet
 │   │   ├── upload/                 # DropZone
 │   │   ├── feedback/               # ProgressRing / StageChips

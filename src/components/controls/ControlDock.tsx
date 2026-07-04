@@ -1,6 +1,7 @@
 // デスクトップ下部コントロールドック（ガラス調）
 
 import { DepthSlider } from "./DepthSlider";
+import { ParallaxSlider } from "./ParallaxSlider";
 import { ResetButton } from "./ResetButton";
 
 export function ControlDock() {
@@ -24,6 +25,7 @@ export function ControlDock() {
       }}
     >
       <DepthSlider />
+      <ParallaxSlider />
       <div style={{ width: 1, height: 40, background: "rgba(0,0,0,0.08)" }} />
       <ResetButton />
     </div>
