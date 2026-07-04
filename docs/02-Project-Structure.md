@@ -1,6 +1,6 @@
 # プロジェクト構造
 
-最終更新日: 2026-07-02
+最終更新日: 2026-07-05
 
 ## 1. ディレクトリ構成
 
@@ -8,7 +8,7 @@
 parallax/
 ├── public/
 │   ├── models/                     # 深度モデル + manifest.json（*.onnx は未コミット）
-│   └── sw.js                       # Service Worker 雛形
+│   └── sw.js                       # Service Worker（シェル SWR / 静的資産・ORT wasm cache-first）
 ├── src/
 │   ├── main.tsx                    # エントリ（本番のみ SW 登録）
 │   ├── App.tsx                     # appState ルーティング + Studio シェル
@@ -24,7 +24,7 @@ parallax/
 │   │   ├── pipeline/               # normalizeDepth / percentile / medianDepth / refineDepth / buildDepthMesh / shouldDropTriangle
 │   │   │                           #  / splitDepthLayers / pushPullInpaint / maskOps / buildLayers / runPipeline / fallbackAsset
 │   │   ├── render/                 # LayeredRenderer / DragCameraController / threeResources / materials/*
-│   │   ├── cache/                  # db / sceneCacheKey / serializeAsset / deserializeAsset / sceneStore
+│   │   ├── cache/                  # db / sceneCacheKey / serializeAsset / deserializeAsset / sceneStore / clearCaches
 │   │   └── device/                 # webgpuDetection / deviceTier
 │   ├── worker/                     # processing.worker / processingApi / workerClient / cancellation
 │   ├── hooks/                      # useProcessing / useRenderer / useDropZone / useStageLayout / useMediaQuery
@@ -67,5 +67,5 @@ parallax/
 
 - `worker.format: "es"` — Worker 内の ESM import（onnxruntime-web）に必須。
 - `optimizeDeps.exclude: ["onnxruntime-web"]` — 動的 wasm ローダを壊さない。
-- `viteStaticCopy` — `onnxruntime-web/dist/ort-wasm-*.{mjs,wasm}`（wasm バイナリと .mjs ローダ）を出力ルートへコピー（`wasmPaths` が参照。`.mjs` を含めないと WASM バックエンドが初期化できない）。
+- `viteStaticCopy` — `onnxruntime-web/dist/ort-wasm-*.{mjs,wasm}`（wasm バイナリと .mjs ローダ）を出力ルートへコピー（`wasmPaths` が参照。`.mjs` を含めないと WASM バックエンドが初期化できない）。ort-wasm はファイル名にハッシュが付かないため、onnxruntime-web 更新時は `public/sw.js` の `VERSION` を上げて旧キャッシュを破棄する。
 - `server.headers` / `preview.headers` に COOP `same-origin` + COEP `require-corp` — `crossOriginIsolated`（マルチスレッド WASM）を有効化。**未設定でも単一スレッドで動作**する設計。
