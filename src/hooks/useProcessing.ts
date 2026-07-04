@@ -2,12 +2,18 @@ import { useCallback } from "react";
 import { useAppStore } from "../store/store";
 import { cancelProcessing, startProcessing } from "../worker/workerClient";
 import { newId } from "../utils/id";
+import { closeAssetBitmaps } from "../utils/closeAsset";
 import type { ProcessingEvent } from "../types";
 
 /** Worker イベント → ストア反映。id が現行ジョブでなければ破棄（実装ガイド §20）。 */
 function handleEvent(event: ProcessingEvent): void {
   const s = useAppStore.getState();
-  if (event.id !== s.activeJobId) return;
+  if (event.id !== s.activeJobId) {
+    // stale でも転送済みビットマップは main 側に届いているため解放する
+    if (event.type === "complete") closeAssetBitmaps(event.asset);
+    else if (event.type === "error" && event.fallbackAsset) closeAssetBitmaps(event.fallbackAsset);
+    return;
+  }
   switch (event.type) {
     case "progress":
       s.setProgress({ stage: event.stage, percent: event.progress });
@@ -39,7 +45,7 @@ export function useProcessing() {
 
     const id = newId();
     s.setError(null);
-    s.setProgress({ stage: "loading-model", percent: 0 });
+    s.setProgress({ stage: "preprocessing-image", percent: 0 });
     s.setSourceThumbnail(URL.createObjectURL(file));
     s.setActiveJobId(id);
     s.setPhase("loading");

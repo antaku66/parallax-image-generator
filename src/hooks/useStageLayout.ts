@@ -4,14 +4,13 @@ import { useAppStore } from "../store/store";
 
 /**
  * ステージのリサイズを監視し、額装写真の寸法（FrameBox）を返す（Studio layout()）。
- * fitMode が未ロックなら画像/ステージのアスペクトから自動判定する。
+ * fitMode は画像/ステージのアスペクトから自動判定する。
  */
 export function useStageLayout(
   stageRef: RefObject<HTMLElement | null>,
   imageAspect: number | null
 ): FrameBox | null {
   const fitMode = useAppStore((s) => s.fitMode);
-  const fitModeLocked = useAppStore((s) => s.fitModeLocked);
   const setFitMode = useAppStore((s) => s.setFitMode);
   const [box, setBox] = useState<FrameBox | null>(null);
 
@@ -23,8 +22,8 @@ export function useStageLayout(
       const w = el.clientWidth;
       const h = el.clientHeight;
       if (!w || !h) return;
-      const mode = fitModeLocked ? fitMode : decideFitMode(imageAspect, w / h);
-      if (!fitModeLocked && mode !== fitMode) setFitMode(mode, false);
+      const mode = decideFitMode(imageAspect, w / h);
+      if (mode !== fitMode) setFitMode(mode);
       setBox(computeFrameBox(w, h, imageAspect, mode));
     };
 
@@ -32,7 +31,7 @@ export function useStageLayout(
     ro.observe(el);
     compute();
     return () => ro.disconnect();
-  }, [stageRef, imageAspect, fitMode, fitModeLocked, setFitMode]);
+  }, [stageRef, imageAspect, fitMode, setFitMode]);
 
   return box;
 }

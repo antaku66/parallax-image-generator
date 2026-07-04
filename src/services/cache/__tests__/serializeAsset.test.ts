@@ -70,7 +70,6 @@ function makeAsset(): SpatialSceneAsset {
         gridX: 2,
         gridY: 2,
         depthScale: 0.16,
-        discontinuityThreshold: 0.18,
       },
     },
   };

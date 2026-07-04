@@ -1,24 +1,11 @@
-// キャッシュキーとモデルマニフェストの型（実装ガイド §6, §21）
+// キャッシュキーの型（実装ガイド §21）
 
-import type { ModelName } from "./depth";
-
-/** 同一画像・同一モデル・同一処理バージョンなら再生成しない（実装ガイド §21） */
+/** 同一画像・同一モデル・同一処理バージョン・同一 tier なら再生成しない（実装ガイド §21） */
 export type SceneCacheKey = {
   imageHash: string;
   modelName: string;
   modelVersion: string;
   processingVersion: string;
-};
-
-export type ModelManifestEntry = {
-  id: ModelName;
-  url: string;
-  sizeBytes: number;
-  /** 推論入力辺（14 の倍数） */
-  inputSide: number;
-  version: string;
-};
-
-export type ModelManifest = {
-  models: ModelManifestEntry[];
+  /** 解像度階層（mobile/desktop）。tier 依存の解像度が資産に焼き込まれるためキーに含める */
+  tier: string;
 };

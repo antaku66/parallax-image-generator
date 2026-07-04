@@ -21,7 +21,7 @@ flowchart TD
 
 ## 2. ステージ（`ProcessingStage`, 実装ガイド §20）
 
-`preprocessing-image` → `loading-model` → `estimating-depth` → `normalizing-depth` → `building-mesh`（レイヤー生成）→ `finalizing`。各ステージ境界でキャンセルを確認する（前処理・ハッシュ算出を先に行い、キャッシュミス時のみモデルをロードする）。
+`preprocessing-image` → `loading-model` → `estimating-depth` → `normalizing-depth` → `building-mesh`（レイヤー生成）→ `finalizing`。各ステージ境界でキャンセルを確認する（前処理・ハッシュ算出を先に行い、キャッシュミス時のみモデルをロードする）。モデルダウンロード中と `buildLayers` 内部にはチェックポイントがなく、キャンセル反映はそれらの完了後になる。
 
 ## 3. main ↔ worker データフロー
 
@@ -65,7 +65,7 @@ sequenceDiagram
 - **分割判定**: `splitDepthLayers` が Otsu 法で前景/背景しきい値・前景ソフトマスク・**分離度 η**（クラス間分散/全分散）を求める（near=前景）。η が `minSplitSeparability` 未満（深度が連続的な風景等）は 2 層分割を放棄し、不連続カリング付きの**連続メッシュ 1 枚（単層）**へフォールバックする（「一枚の面が裂ける」破綻を防ぐ）。
 - **マットのエッジ整合アップサンプリング**: 深度解像度の前景マスクはテクスチャ解像度へ双線形拡大後、輝度ガイドの guided filter（`upsampleMatte`）で実シルエットへ吸着させる。
 - **背景レイヤー**: 前景領域を除去し `pushPullInpaint`（マスク付き push-pull）で色・深度をインペイントした「完全な背景」。カリング無しの完全メッシュなので前景がずれても穴が出ない。**外周ガター**（`bgGutter`、インペイント余白 + メッシュ位置への焼き込み）を持ち、視差移動時のフレーム外露出を防ぐ（単層シーンも同様）。
-- **前景レイヤー**: 被写体の切り抜き。アルファは 1〜2px チョーク（`erodeMin`）で混合画素を削り、エッジ帯の RGB は被写体内部色の押し出し（push-pull による**色デコンタミネーション**）で背景色の焼き込みを除去する。メッシュは前景マスクでカリングし、マスク外の深度を被写体深度の押し出しで置換（**スカート平坦化**）して境界三角形が背景深度へ引き伸ばされる「膜」を防ぐ。テクスチャは straight alpha（`premultiplyAlpha: "none"` 明示）。
+- **前景レイヤー**: 被写体の切り抜き。アルファは 2px チョーク（`erodeMin`, `fgAlphaErode`）で混合画素を削り、エッジ帯の RGB は被写体内部色の押し出し（push-pull による**色デコンタミネーション**）で背景色の焼き込みを除去する。メッシュは前景マスクでカリングし、マスク外の深度を被写体深度の押し出しで置換（**スカート平坦化**）して境界三角形が背景深度へ引き伸ばされる「膜」を防ぐ。テクスチャは straight alpha（`premultiplyAlpha: "none"` 明示）。
 - 格子は tier 別 `IMAGE_LIMITS[tier].meshGrid`（mobile 128 / desktop 192）。z = 深度 × `PIPELINE_DEFAULTS.depthScale`。全レイヤーを同一 depthScale で配置し、視差は Z 差から自然に生じる。
 
 ## 6. フォールバック連鎖（実装ガイド §23）

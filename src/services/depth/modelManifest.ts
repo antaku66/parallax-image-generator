@@ -1,7 +1,7 @@
 // モデルの存在確認・取得・キャッシュ（MD §6, §18）
 
-import { MODELS, MODEL_MANIFEST_URL, modelUrl } from "../../constants/models";
-import type { ModelManifest, ModelName } from "../../types";
+import { MODELS, modelUrl } from "../../constants/models";
+import type { ModelName } from "../../types";
 
 const MODEL_CACHE = "spatial-scene-models-v1";
 
@@ -70,14 +70,4 @@ export async function fetchModelBytes(
     }
   }
   return bytes;
-}
-
-export async function loadModelManifest(): Promise<ModelManifest | null> {
-  try {
-    const res = await fetch(MODEL_MANIFEST_URL);
-    if (!res.ok) return null;
-    return (await res.json()) as ModelManifest;
-  } catch {
-    return null;
-  }
 }

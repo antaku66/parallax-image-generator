@@ -41,14 +41,16 @@ self.addEventListener("activate", (event) => {
 });
 
 /** シェル: キャッシュを即返しつつ裏で更新（オフライン時はキャッシュのみ） */
-async function staleWhileRevalidateShell(request) {
+async function staleWhileRevalidateShell(event) {
   const cache = await caches.open(SHELL_CACHE);
-  const revalidate = fetch(request)
-    .then((res) => {
-      if (res.ok) cache.put(SHELL_KEY, res.clone());
+  const revalidate = fetch(event.request)
+    .then(async (res) => {
+      if (res.ok) await cache.put(SHELL_KEY, res.clone());
       return res;
     })
     .catch(() => undefined);
+  // キャッシュ返却直後に SW が停止しても裏側更新を完走させる
+  event.waitUntil(revalidate);
   const cached = await cache.match(SHELL_KEY);
   if (cached) return cached;
   const fresh = await revalidate;
@@ -56,12 +58,13 @@ async function staleWhileRevalidateShell(request) {
 }
 
 /** ハッシュ付き資産・ORT wasm: キャッシュ優先（ミス時のみ取得して保存） */
-async function cacheFirst(request) {
+async function cacheFirst(event) {
   const cache = await caches.open(STATIC_CACHE);
-  const cached = await cache.match(request);
+  const cached = await cache.match(event.request);
   if (cached) return cached;
-  const res = await fetch(request);
-  if (res.ok) cache.put(request, res.clone());
+  const res = await fetch(event.request);
+  // 応答返却後の保存完了まで SW を延命する
+  if (res.ok) event.waitUntil(cache.put(event.request, res.clone()));
   return res;
 }
 
@@ -75,12 +78,12 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/models/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(staleWhileRevalidateShell(request));
+    event.respondWith(staleWhileRevalidateShell(event));
   } else if (
     url.pathname.startsWith("/assets/") ||
     /^\/ort-wasm-.+\.(mjs|wasm)$/.test(url.pathname)
   ) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(cacheFirst(event));
   }
   // それ以外は素通し（ブラウザ既定の取得に委ねる）
 });

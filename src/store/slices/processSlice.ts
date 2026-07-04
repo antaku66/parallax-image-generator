@@ -16,7 +16,7 @@ export interface ProcessSlice {
 
 export const createProcessSlice: StateCreator<AppStore, [], [], ProcessSlice> = (set) => ({
   appState: "empty",
-  progress: { stage: "loading-model", percent: 0 },
+  progress: { stage: "preprocessing-image", percent: 0 },
   activeJobId: null,
   error: null,
 

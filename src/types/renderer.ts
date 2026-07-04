@@ -12,7 +12,7 @@ export interface SpatialSceneRenderer {
   mount(canvas: HTMLCanvasElement): void;
   setAsset(asset: SpatialSceneAsset): Promise<void>;
   setParameters(params: RendererParameters): void;
-  /** DragCameraController から呼ばれるカメラ更新 */
+  /** UI からのカメラ目標更新（Reset の中心復帰などで使用） */
   setCamera(camera: CameraState): void;
   resize(width: number, height: number): void;
   render(): void;

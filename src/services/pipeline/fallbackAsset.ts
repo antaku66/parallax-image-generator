@@ -47,7 +47,6 @@ export async function buildFallbackAsset(
         gridX: PIPELINE_DEFAULTS.gridX,
         gridY: PIPELINE_DEFAULTS.gridY,
         depthScale: PIPELINE_DEFAULTS.depthScale,
-        discontinuityThreshold: PIPELINE_DEFAULTS.discontinuityThreshold,
       },
       durationMs: Date.now() - startedAt,
     },

@@ -48,7 +48,6 @@ export type SceneMetadata = {
     gridX: number;
     gridY: number;
     depthScale: number;
-    discontinuityThreshold: number;
   };
   durationMs?: number;
 };

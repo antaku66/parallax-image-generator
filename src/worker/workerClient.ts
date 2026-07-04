@@ -28,9 +28,3 @@ export async function startProcessing(
 export function cancelProcessing(id: string): void {
   void api?.cancel(id);
 }
-
-export function terminateWorker(): void {
-  worker?.terminate();
-  worker = null;
-  api = null;
-}

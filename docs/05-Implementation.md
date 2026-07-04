@@ -20,7 +20,7 @@
 | PR10 | パラメータ UI、エラー表示、パフォーマンス表示 | 実装済み（Depth/Parallax スライダー、Reset、エラー UI、パフォーマンスバッジ。layer count・mask feather・inpainting 有無・backdrop blur の Worker パラメータ化は再処理とキャッシュキー設計を要するため見送り） |
 | PR11 | テスト、サンプル画像での回帰確認、README 整備 | 一部（純ロジックのユニットテスト + README） |
 
-segmentation・多層分割は独立した処理として後から追加できる構成にしてある（追加しても既存の描画・キャッシュ経路は変わらない。`LayeredRenderer` は任意レイヤー数に対応済み）。パイプラインの処理内容を変えた場合は `constants/versions.ts` の `PROCESSING_VERSION` を上げてキャッシュを無効化する。
+segmentation・多層分割は独立した処理として後から追加できる構成にしてある（追加しても既存の描画・キャッシュ経路は変わらない。`LayeredRenderer` は任意レイヤー数に対応済み）。パイプラインの処理内容を変えた場合（`PIPELINE_DEFAULTS` / `IMAGE_LIMITS` の値変更を含む）は `constants/versions.ts` の `PROCESSING_VERSION` を上げてキャッシュを無効化する。キャッシュキーには tier（mobile/desktop）も含まれ、tier 依存の解像度差で別品質の資産を誤ヒットしない。
 
 ## 2. 深度モデルの入手・配置
 

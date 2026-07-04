@@ -7,16 +7,11 @@ const DB_NAME = "spatial-scene";
 const DB_VERSION = 1;
 
 export const SCENES_STORE = "scenes";
-export const SETTINGS_STORE = "settings";
 
 export interface SpatialSceneDB {
   [SCENES_STORE]: {
     key: string;
     value: SerializedSpatialSceneAsset;
-  };
-  [SETTINGS_STORE]: {
-    key: string;
-    value: unknown;
   };
 }
 
@@ -25,12 +20,11 @@ let dbPromise: Promise<IDBPDatabase<SpatialSceneDB>> | null = null;
 export function getDB(): Promise<IDBPDatabase<SpatialSceneDB>> {
   if (!dbPromise) {
     dbPromise = openDB<SpatialSceneDB>(DB_NAME, DB_VERSION, {
+      // 過去の v1 で作成した未使用の settings ストアが残る環境があるが、
+      // 空のまま無害なので version バンプによる削除はしない
       upgrade(db) {
         if (!db.objectStoreNames.contains(SCENES_STORE)) {
           db.createObjectStore(SCENES_STORE);
-        }
-        if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
-          db.createObjectStore(SETTINGS_STORE);
         }
       },
     });

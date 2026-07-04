@@ -17,6 +17,8 @@ export class DragCameraController {
   private target = { x: 0, y: 0 };
   private cur = { x: 0, y: 0 };
   private dragging = false;
+  /** ドラッグ中のポインタ。マルチタッチの 2 本目以降は無視する */
+  private pointerId: number | null = null;
   private startX = 0;
   private startY = 0;
   private baseX = 0;
@@ -59,6 +61,10 @@ export class DragCameraController {
   }
 
   private onDown = (e: PointerEvent) => {
+    // ドラッグ中の別ポインタ（2 本目の指）と右/中ボタンは無視する
+    if (this.pointerId !== null) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    this.pointerId = e.pointerId;
     this.dragging = true;
     this.startX = e.clientX;
     this.startY = e.clientY;
@@ -73,15 +79,16 @@ export class DragCameraController {
   };
 
   private onMove = (e: PointerEvent) => {
-    if (!this.dragging) return;
+    if (!this.dragging || e.pointerId !== this.pointerId) return;
     const w = this.el.clientWidth || 1;
     const h = this.el.clientHeight || 1;
     this.target.x = clamp(this.baseX + (e.clientX - this.startX) / (w * 0.5), -1, 1);
     this.target.y = clamp(this.baseY + (e.clientY - this.startY) / (h * 0.5), -1, 1);
   };
 
-  private onUp = () => {
-    if (!this.dragging) return;
+  private onUp = (e: PointerEvent) => {
+    if (!this.dragging || e.pointerId !== this.pointerId) return;
+    this.pointerId = null;
     this.dragging = false;
     this.el.style.cursor = "grab";
     // release 後は中心へイージングで戻す（MD §16）

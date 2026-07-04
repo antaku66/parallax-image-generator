@@ -9,9 +9,6 @@ export const PIPELINE_DEFAULTS = {
   gridY: 192,
   depthScale: 0.16,
   discontinuityThreshold: 0.18,
-  maxCameraOffset: 0.04,
-  backdropBlur: 24,
-  backdropScale: 1.08,
   // 深度後処理: スパイク除去（中央値）とエッジ考慮平滑化（guided filter）
   medianRadius: 1,
   refineRadius: 4,

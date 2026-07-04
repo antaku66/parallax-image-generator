@@ -1,4 +1,4 @@
-// モデル配置とメタ（実装ガイド §6, §9）。public/models/manifest.json のミラー。
+// モデル配置とメタ（実装ガイド §6, §9）。public/models/manifest.json と同内容（手動同期）。
 
 import type { ModelName } from "../types";
 
@@ -9,7 +9,6 @@ export const IMAGENET_NORMALIZATION = {
 } as const;
 
 export const MODELS_BASE_PATH = "/models/";
-export const MODEL_MANIFEST_URL = "/models/manifest.json";
 
 /** Depth Anything V2 ONNX の入出力テンソル名 */
 export const DEPTH_MODEL_IO = {

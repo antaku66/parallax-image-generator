@@ -6,6 +6,7 @@
 
 ```text
 parallax/
+├── index.html                      # Vite エントリ HTML
 ├── public/
 │   ├── models/                     # 深度モデル + manifest.json（*.onnx は未コミット）
 │   └── sw.js                       # Service Worker（シェル SWR / 静的資産・ORT wasm cache-first）
@@ -26,6 +27,7 @@ parallax/
 │   │   ├── render/                 # LayeredRenderer / DragCameraController / threeResources / materials/*
 │   │   ├── cache/                  # db / sceneCacheKey / serializeAsset / deserializeAsset / sceneStore / clearCaches
 │   │   └── device/                 # webgpuDetection / deviceTier
+│   │       ※ pipeline/ cache/ 配下の __tests__/ に純ロジックのユニットテスト（05 §4）
 │   ├── worker/                     # processing.worker / processingApi / workerClient / cancellation
 │   ├── hooks/                      # useProcessing / useRenderer / useDropZone / useStageLayout / useMediaQuery
 │   ├── store/                      # store + slices/{asset,process,params,camera}
@@ -39,10 +41,13 @@ parallax/
 │   │   ├── feedback/               # ProgressRing / StageChips
 │   │   ├── modals/                 # InfoModal
 │   │   └── ui/                     # Button
-│   └── utils/                      # clamp / quantize / aspect / id / transfer
+│   └── utils/                      # clamp / quantize / aspect / id / transfer / closeAsset
+│       ※ utils/__tests__/ に quantize のユニットテスト
 ├── docs/                           # 01-05（本ドキュメント群）
 ├── design_handoff_spatial_scene/   # UI/UX ハンドオフ（入力）
+├── .claude/launch.json             # dev / 本番プレビューの起動設定
 ├── vite.config.ts / vitest.config.ts / tsconfig*.json / eslint.config.js
+├── README.md
 └── package.json
 ```
 

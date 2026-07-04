@@ -34,7 +34,6 @@ export class LayeredRenderer implements SpatialSceneRenderer {
   private params: RendererParameters = {
     depthScale: DEPTH_BASELINE,
     parallaxStrength: PARALLAX_BASELINE,
-    edgeCutThreshold: 0.18,
   };
 
   private get camZ(): number {

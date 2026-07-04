@@ -26,7 +26,6 @@ export type PipelineDeps = {
   backend: OnnxBackend;
   gridX?: number;
   gridY?: number;
-  discontinuityThreshold?: number;
   depthSide: number;
   startedAt: number;
   onStage: (stage: ProcessingStage, progress: number) => void;
@@ -42,7 +41,6 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
     backend,
     gridX = PIPELINE_DEFAULTS.gridX,
     gridY = PIPELINE_DEFAULTS.gridY,
-    discontinuityThreshold = PIPELINE_DEFAULTS.discontinuityThreshold,
     depthSide,
     startedAt,
     onStage,
@@ -75,7 +73,11 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
     gridY,
     depthScale: PIPELINE_DEFAULTS.depthScale,
   });
-  checkpoint(shouldCancel);
+  if (shouldCancel()) {
+    // 生成済みのレイヤーテクスチャを解放してから打ち切る（display は呼び出し側が解放）
+    for (const layer of layers) layer.texture.close();
+    checkpoint(shouldCancel);
+  }
 
   onStage("finalizing", 0.95);
   const asset: SpatialSceneAsset = {
@@ -102,7 +104,6 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
         gridX,
         gridY,
         depthScale: PIPELINE_DEFAULTS.depthScale,
-        discontinuityThreshold,
       },
       durationMs: Date.now() - startedAt,
     },

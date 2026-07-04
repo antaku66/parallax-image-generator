@@ -43,15 +43,21 @@ export function pushPullInpaint(
   const levels: Level[] = [];
 
   // level 0: 既知画素のみ色を持たせ、a を被覆率(0/1)とする
+  let anyKnown = false;
   {
     const col = new Float32Array(data.length);
     const a = new Float32Array(width * height);
     for (let i = 0; i < width * height; i++) {
       a[i] = known[i] > 0.5 ? 1 : 0;
-      if (a[i]) for (let c = 0; c < channels; c++) col[i * channels + c] = data[i * channels + c];
+      if (a[i]) {
+        anyKnown = true;
+        for (let c = 0; c < channels; c++) col[i * channels + c] = data[i * channels + c];
+      }
     }
     levels.push({ w: width, h: height, col, a });
   }
+  // 全未知は補間の根拠が無く全 0（黒）を返してしまうため、入力をそのまま返す
+  if (!anyKnown) return data.slice();
 
   // pull: 2x2 平均で縮小し、被覆率 a と正規化色を積み上げる
   const acc = new Float32Array(channels);

@@ -28,8 +28,6 @@ export type ParamsState = {
   depthScale: number;
   /** 視差の強さ（カメラ最大オフセットへマップ, 0..1） */
   parallaxStrength: number;
-  /** 三角形カリングの不連続しきい値（再メッシュ用） */
-  edgeCutThreshold: number;
 };
 
 /** カメラのオフセット（clamp 済み, 実装ガイド §19） */

@@ -41,6 +41,17 @@ describe("pushPullInpaint", () => {
     }
   });
 
+  it("全画素未知なら入力をそのまま返す（全 0 への黒転びを防ぐ）", () => {
+    const w = 8;
+    const h = 8;
+    const ch = 3;
+    // 細い被写体でチョーク後の α が既知しきい値に届かないケース（色デコンタミネーションの退化）
+    const data = Float32Array.from({ length: w * h * ch }, (_, i) => ((i % 7) + 1) / 7);
+    const known = new Float32Array(w * h); // 全 0 = 全未知
+    const out = pushPullInpaint(data, known, w, h, ch);
+    for (let i = 0; i < data.length; i++) expect(out[i]).toBeCloseTo(data[i], 5);
+  });
+
   it("多チャンネル（RGB）を独立に埋める", () => {
     const w = 8;
     const h = 8;
