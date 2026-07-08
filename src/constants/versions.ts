@@ -3,4 +3,4 @@
 export const ASSET_VERSION = 2;
 
 /** パイプライン実装のバージョン。処理内容を変えたら上げる。 */
-export const PROCESSING_VERSION = "v3";
+export const PROCESSING_VERSION = "v4";
