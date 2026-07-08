@@ -12,7 +12,7 @@
 | PR2 | DepthEstimator interface、ONNX Runtime Web、backend 判定 | 実装済み |
 | PR3 | depth 正規化、depth refinement、2.5D メッシュ生成 | 実装済み |
 | PR4 | segmentation interface、segmentation 推論、mask 生成 | 今後（guided filter によるマット精錬 + 色デコンタミネーションで「深度のみマット」の実用上限を確認してから、人物クローズアップ等に限定して導入判断） |
-| PR5 | depth histogram によるレイヤー分割、Layered Depth Image 生成 | 一部（Otsu 分割 + 分離度 η による 2 層/単層の自動切替。多層分割は今後） |
+| PR5 | depth histogram によるレイヤー分割、Layered Depth Image 生成 | 実装済み（再帰的 Otsu による 1〜maxLayers 層の自動決定。深度のみで分割し、segmentation による境界補正は PR4 の導入判断後。実装ガイド §13 の `LAYER_DEFAULTS` とは意図的な差異あり: `minLayerCount: 3` は単峰分布への強制分割が「面が裂ける」破綻を生むため不採用〔ゲートによる自動決定を維持〕、`maxLayerCount: 6` はメモリ・処理時間の観点で tier 別 3/4 に縮小、`minRegionAreaRatio`〔連結成分の面積棄却〕は segmentation とセットの概念のためスラブ質量ゲートで代替） |
 | PR6 | edge dilation、OpenCV.js inpaint、fallback backdrop | 一部（push-pull による背景インペイント + 前景マスク膨張 + 外周ガター。OpenCV.js inpaint は**見送り**: 平滑充填で push-pull と画質差が小さく wasm 約 8MB の依存が重いため、必要なら穴周辺の高周波統計に基づく粒状合成で代替する） |
 | PR7 | LayeredRenderer、DragCameraController、Three.js リソース管理 | 実装済み |
 | PR8 | Worker 分離、進捗イベント、キャンセル対応、Transferable 対応 | 実装済み |
@@ -20,7 +20,7 @@
 | PR10 | パラメータ UI、エラー表示、パフォーマンス表示 | 実装済み（Depth/Parallax スライダー、Reset、エラー UI、パフォーマンスバッジ。layer count・mask feather・inpainting 有無・backdrop blur の Worker パラメータ化は再処理とキャッシュキー設計を要するため見送り） |
 | PR11 | テスト、サンプル画像での回帰確認、README 整備 | 一部（純ロジックのユニットテスト + README） |
 
-segmentation・多層分割は独立した処理として後から追加できる構成にしてある（追加しても既存の描画・キャッシュ経路は変わらない。`LayeredRenderer` は任意レイヤー数に対応済み）。パイプラインの処理内容を変えた場合（`PIPELINE_DEFAULTS` / `IMAGE_LIMITS` の値変更を含む）は `constants/versions.ts` の `PROCESSING_VERSION` を上げてキャッシュを無効化する。キャッシュキーには tier（mobile/desktop）も含まれ、tier 依存の解像度差で別品質の資産を誤ヒットしない。
+segmentation は独立した処理として後から追加できる構成にしてある（追加しても既存の描画・キャッシュ経路は変わらない。`LayeredRenderer` は任意レイヤー数に対応済み）。パイプラインの処理内容を変えた場合（`PIPELINE_DEFAULTS` / `IMAGE_LIMITS` の値変更を含む）は `constants/versions.ts` の `PROCESSING_VERSION` を上げてキャッシュを無効化する。キャッシュキーには tier（mobile/desktop）も含まれ、tier 依存の解像度差で別品質の資産を誤ヒットしない。
 
 ## 2. 深度モデルの入手・配置
 

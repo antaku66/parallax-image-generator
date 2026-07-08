@@ -1,9 +1,12 @@
 // レイヤー生成（実装ガイド §13/§14）。
-// 深度分布が二峰的な画像は前景/背景を分離し、
-//   背景: 前景を除去してインペイントした「完全な背景」（不透明メッシュ）
-//   前景: 被写体の切り抜き（アルファマット）
-// を作る。同一 depthScale で配置し、視差は Z 差から自然に生じる。
-// 深度が連続的な画像（風景等）は分割せず、不連続カリング付きの連続メッシュ 1 枚で表現する。
+// 再帰的 Otsu が返すしきい値 t_1 < … < t_{K-1} と累積マスク M_k から
+// N 層の Layered Depth Image を組み立てる。統一スキーム:
+//   レイヤー k = 「t_{k+1} より手前（M_{k+1}）を穴としてインペイントした画像」を M_k でマット
+//   - 最背面 (k=0): 全ての手前領域を除去してインペイントした「完全な背景」（不透明メッシュ）
+//   - 中間層: 自スラブの切り抜き + 手前領域を自スラブの延長色で穴埋め
+//   - 最前面 (k=K-1): 被写体の切り抜き（アルファマット）
+// 同一 depthScale で配置し、視差は Z 差から自然に生じる。
+// 深度が連続的な画像（分割ゲート不通過）は分割せず、不連続カリング付きの連続メッシュ 1 枚で表現する。
 // 最背面レイヤーは外周ガター（インペイント余白）を持ち、視差移動時のフレーム外露出を防ぐ。
 
 import type { FloatDepthMap, SceneLayer, SceneMesh } from "../../types";
@@ -22,6 +25,8 @@ export type BuildLayersOptions = {
   gridX: number;
   gridY: number;
   depthScale: number;
+  /** レイヤー数の上限（tier 別。IMAGE_LIMITS[tier].maxLayers） */
+  maxLayers?: number;
 };
 
 function fitDims(w: number, h: number, maxSide: number): [number, number] {
@@ -54,6 +59,21 @@ function upsampleMatte(
     matteRadius(dw, sw),
     PIPELINE_DEFAULTS.matteEps
   );
+}
+
+/** 手前マスクをテクスチャ解像度へエッジ整合拡大・膨張し、2 値の穴マスクにする（フリンジを穴に含める） */
+function holeFromNearer(
+  nearer: Float32Array,
+  dw: number,
+  dh: number,
+  rgba: ImageData
+): Float32Array {
+  const w = rgba.width;
+  const h = rgba.height;
+  const nearAtTex = dilateMax(upsampleMatte(nearer, dw, dh, rgba), w, h, PIPELINE_DEFAULTS.inpaintDilate);
+  const hole = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) hole[i] = nearAtTex[i] > 0.5 ? 1 : 0;
+  return hole;
 }
 
 /** 外周ガターの余白幅(px)。interior 比 bgGutter を各解像度で確保する */
@@ -131,123 +151,145 @@ function scaleMeshXY(mesh: SceneMesh, sx: number, sy: number): void {
   }
 }
 
-/** 単層シーン: 深度が連続的な画像向け。分割せず連続メッシュ 1 枚（+ ガター）で表現する */
-async function buildSingleLayer(opts: BuildLayersOptions): Promise<SceneLayer> {
+/**
+ * 最背面レイヤー: nearer（手前の累積マスク）の領域を穴として完全インペイントした
+ * 不透明メッシュ（+ 外周ガター）。nearer=null は分割なしの単層シーン。
+ */
+async function buildBackLayer(
+  opts: BuildLayersOptions,
+  nearer: Float32Array | null,
+  textureSide: number,
+  id: string,
+  depthRange: [number, number]
+): Promise<SceneLayer> {
   const { depth, display, gridX, gridY, depthScale } = opts;
-  const [w, h] = fitDims(display.width, display.height, PIPELINE_DEFAULTS.fgTextureSide);
+  const [w, h] = fitDims(display.width, display.height, textureSide);
   const rgba = bitmapToImageData(display, w, h);
-  const { image, sx, sy } = inpaintWithGutter(rgba, null);
+  const hole = nearer ? holeFromNearer(nearer, depth.width, depth.height, rgba) : null;
+  // 手前の穴と外周ガターを 1 回の push-pull で補完（遮蔽穴とフレーム外露出を同時に解消）
+  const { image, sx, sy } = inpaintWithGutter(rgba, hole);
   const texture = await createImageBitmap(image, { premultiplyAlpha: "none" });
-  const mesh = buildDepthMesh({
-    depth: inpaintDepthWithGutter(depth, null),
-    gridX,
-    gridY,
-    depthScale,
-    discontinuityThreshold: PIPELINE_DEFAULTS.discontinuityThreshold,
-  });
-  scaleMeshXY(mesh, sx, sy);
-  return { id: "scene", depthRange: [0, 1], texture, mesh, parallax: 1 };
-}
 
-export async function buildLayers(opts: BuildLayersOptions): Promise<SceneLayer[]> {
-  const { depth, display, gridX, gridY, depthScale } = opts;
-  const dw = depth.width;
-  const dh = depth.height;
-  const { threshold, foreground, separability } = splitDepthLayers(
-    depth,
-    PIPELINE_DEFAULTS.splitMargin
-  );
-
-  // 深度分布が連続的（二峰でない）な画像では、2 層分割が「一枚の面が裂ける」破綻を生む。
-  // 分離度が低い場合は分割を放棄し、連続メッシュ 1 枚へフォールバックする。
-  if (separability < PIPELINE_DEFAULTS.minSplitSeparability) {
-    return [await buildSingleLayer(opts)];
+  // ジオメトリ: 手前領域の深度もインペイントし外周へ延長
+  let depthHole: Float32Array | null = null;
+  if (nearer) {
+    depthHole = new Float32Array(depth.width * depth.height);
+    for (let i = 0; i < depthHole.length; i++) depthHole[i] = nearer[i] > 0.3 ? 1 : 0;
   }
-
-  // ---- 背景レイヤー: 前景を除去してインペイントした完全な背景 ----
-  const [bgW, bgH] = fitDims(display.width, display.height, PIPELINE_DEFAULTS.bgTextureSide);
-  const bgRgba = bitmapToImageData(display, bgW, bgH);
-  // 前景マスクを背景解像度へエッジ整合拡大し膨張（被写体フリンジを穴に含める）
-  const fgAtBg = dilateMax(
-    upsampleMatte(foreground, dw, dh, bgRgba),
-    bgW,
-    bgH,
-    PIPELINE_DEFAULTS.inpaintDilate
-  );
-  const bgHole = new Float32Array(bgW * bgH);
-  for (let i = 0; i < bgW * bgH; i++) bgHole[i] = fgAtBg[i] > 0.5 ? 1 : 0;
-  // 前景の穴と外周ガターを 1 回の push-pull で補完（遮蔽穴とフレーム外露出を同時に解消）
-  const { image: bgImage, sx, sy } = inpaintWithGutter(bgRgba, bgHole);
-  const bgTexture = await createImageBitmap(bgImage, { premultiplyAlpha: "none" });
-
-  // 背景ジオメトリ: 前景領域の深度もインペイントし外周へ延長（カリング無し=完全メッシュ）
-  const depthHole = new Float32Array(dw * dh);
-  for (let i = 0; i < dw * dh; i++) depthHole[i] = foreground[i] > 0.3 ? 1 : 0;
-  const bgMesh = buildDepthMesh({
+  const mesh = buildDepthMesh({
     depth: inpaintDepthWithGutter(depth, depthHole),
     gridX,
     gridY,
     depthScale,
-    discontinuityThreshold: 1, // 背景は切らない（穴を作らない）
+    // 分割時は切らない（穴を作らない）完全メッシュ。単層は不連続カリングで裂けを防ぐ
+    discontinuityThreshold: nearer ? 1 : PIPELINE_DEFAULTS.discontinuityThreshold,
   });
-  scaleMeshXY(bgMesh, sx, sy);
+  scaleMeshXY(mesh, sx, sy);
+  return { id, depthRange, texture, mesh, parallax: 1 };
+}
 
-  // ---- 前景レイヤー: 被写体の切り抜き（アルファマット + メッシュカリング）----
-  const [fgW, fgH] = fitDims(display.width, display.height, PIPELINE_DEFAULTS.fgTextureSide);
-  const fgRgba = bitmapToImageData(display, fgW, fgH);
-  // エッジ整合拡大 + チョーク（外縁の混合画素＝背景色が混ざったリムをアルファから削る）
-  const fgAlpha = erodeMin(
-    upsampleMatte(foreground, dw, dh, fgRgba),
-    fgW,
-    fgH,
-    PIPELINE_DEFAULTS.fgAlphaErode
-  );
-  // 色デコンタミネーション: 被写体内部色をエッジ帯・透明域へ押し出し、
-  // 半透明リムに焼き込まれた背景色（視差移動時に縁取りとして見える）を除去する
-  const knownFg = new Float32Array(fgW * fgH);
-  const fgRgb = new Float32Array(fgW * fgH * 3);
-  for (let i = 0; i < fgW * fgH; i++) {
-    knownFg[i] = fgAlpha[i] >= PIPELINE_DEFAULTS.fgKnownAlpha ? 1 : 0;
-    fgRgb[i * 3] = fgRgba.data[i * 4] / 255;
-    fgRgb[i * 3 + 1] = fgRgba.data[i * 4 + 1] / 255;
-    fgRgb[i * 3 + 2] = fgRgba.data[i * 4 + 2] / 255;
+/**
+ * マットレイヤー: 累積マスク cum の near 側を切り抜く。
+ * nearer が非 null の中間層は、さらに手前の領域を穴として自スラブの延長色で埋める
+ * （手前レイヤーがずれて露出したとき、奥の色ではなく自スラブの色が見える）。
+ */
+async function buildMatteLayer(
+  opts: BuildLayersOptions,
+  cum: Float32Array,
+  nearer: Float32Array | null,
+  textureSide: number,
+  id: string,
+  depthRange: [number, number]
+): Promise<SceneLayer> {
+  const { depth, display, gridX, gridY, depthScale } = opts;
+  const dw = depth.width;
+  const dh = depth.height;
+  const [w, h] = fitDims(display.width, display.height, textureSide);
+  const rgba = bitmapToImageData(display, w, h);
+  // エッジ整合拡大 + チョーク（外縁の混合画素＝奥の色が混ざったリムをアルファから削る）
+  const alpha = erodeMin(upsampleMatte(cum, dw, dh, rgba), w, h, PIPELINE_DEFAULTS.fgAlphaErode);
+  const hole = nearer ? holeFromNearer(nearer, dw, dh, rgba) : null;
+
+  // 1 回の push-pull を穴埋めと色デコンタミネーションで共用する。
+  // known = 純粋な自レイヤー色（アルファが高く、かつ穴でない画素）
+  const known = new Float32Array(w * h);
+  const rgb = new Float32Array(w * h * 3);
+  for (let i = 0; i < w * h; i++) {
+    known[i] = alpha[i] >= PIPELINE_DEFAULTS.fgKnownAlpha && !(hole && hole[i] > 0) ? 1 : 0;
+    rgb[i * 3] = rgba.data[i * 4] / 255;
+    rgb[i * 3 + 1] = rgba.data[i * 4 + 1] / 255;
+    rgb[i * 3 + 2] = rgba.data[i * 4 + 2] / 255;
   }
-  const fgFilled = pushPullInpaint(fgRgb, knownFg, fgW, fgH, 3);
-  for (let i = 0; i < fgW * fgH; i++) {
-    const t = clamp(fgAlpha[i], 0, 1);
-    // アルファが低いほど内部色へ寄せる（α≥fgKnownAlpha では元色のまま）
-    fgRgba.data[i * 4] = (fgRgb[i * 3] + (clamp(fgFilled[i * 3], 0, 1) - fgRgb[i * 3]) * (1 - t)) * 255;
-    fgRgba.data[i * 4 + 1] =
-      (fgRgb[i * 3 + 1] + (clamp(fgFilled[i * 3 + 1], 0, 1) - fgRgb[i * 3 + 1]) * (1 - t)) * 255;
-    fgRgba.data[i * 4 + 2] =
-      (fgRgb[i * 3 + 2] + (clamp(fgFilled[i * 3 + 2], 0, 1) - fgRgb[i * 3 + 2]) * (1 - t)) * 255;
-    fgRgba.data[i * 4 + 3] = t * 255;
+  const filled = pushPullInpaint(rgb, known, w, h, 3);
+  for (let i = 0; i < w * h; i++) {
+    const t = clamp(alpha[i], 0, 1);
+    // 穴内は手前レイヤーの色を残さず延長色で全置換。それ以外は色デコンタミネーション:
+    // アルファが低いエッジ帯ほど内部色へ寄せ、半透明リムに焼き込まれた奥の色
+    // （視差移動時に縁取りとして見える）を除去する（α≥fgKnownAlpha では元色のまま）。
+    const mix = hole && hole[i] > 0 ? 0 : t;
+    rgba.data[i * 4] = (rgb[i * 3] + (clamp(filled[i * 3], 0, 1) - rgb[i * 3]) * (1 - mix)) * 255;
+    rgba.data[i * 4 + 1] =
+      (rgb[i * 3 + 1] + (clamp(filled[i * 3 + 1], 0, 1) - rgb[i * 3 + 1]) * (1 - mix)) * 255;
+    rgba.data[i * 4 + 2] =
+      (rgb[i * 3 + 2] + (clamp(filled[i * 3 + 2], 0, 1) - rgb[i * 3 + 2]) * (1 - mix)) * 255;
+    rgba.data[i * 4 + 3] = t * 255;
   }
-  const fgTexture = await createImageBitmap(fgRgba, { premultiplyAlpha: "none" });
-  // 前景専用深度: マスク外を被写体深度の押し出しで置換（スカート平坦化）。
-  // シルエットを跨ぐ境界三角形が背景深度まで引き伸ばされる「膜」を防ぐ。
-  const fgKnownDepth = new Float32Array(dw * dh);
-  for (let i = 0; i < dw * dh; i++) fgKnownDepth[i] = foreground[i] >= 0.5 ? 1 : 0;
-  const fgDepth: FloatDepthMap = {
+  const texture = await createImageBitmap(rgba, { premultiplyAlpha: "none" });
+
+  // レイヤー専用深度: 自スラブの帯（cum の near 側かつ nearer の far 側）を known として
+  // push-pull。マスク外のスカート平坦化と穴内の深度延長を同時に行い、シルエットを跨ぐ
+  // 境界三角形が奥の深度まで引き伸ばされる「膜」を防ぐ。
+  const knownDepth = new Float32Array(dw * dh);
+  for (let i = 0; i < dw * dh; i++) {
+    knownDepth[i] = cum[i] >= 0.5 && !(nearer && nearer[i] >= 0.5) ? 1 : 0;
+  }
+  const layerDepth: FloatDepthMap = {
     kind: "float32",
     width: dw,
     height: dh,
-    data: pushPullInpaint(depth.data, fgKnownDepth, dw, dh, 1),
+    data: pushPullInpaint(depth.data, knownDepth, dw, dh, 1),
   };
-  const fgMaskMap: FloatDepthMap = { kind: "float32", width: dw, height: dh, data: foreground };
-  const fgMesh = buildDepthMesh({
-    depth: fgDepth,
+  const maskMap: FloatDepthMap = { kind: "float32", width: dw, height: dh, data: cum };
+  const mesh = buildDepthMesh({
+    depth: layerDepth,
     gridX,
     gridY,
     depthScale,
-    // 被写体内部に穴を作らないよう緩めのしきい値。前景/背景の切れ目はアルファマットが担う。
+    // スラブ内部に穴を作らないよう緩めのしきい値。切れ目はアルファマットが担う。
     discontinuityThreshold: PIPELINE_DEFAULTS.fgDiscontinuityThreshold,
-    mask: fgMaskMap,
+    mask: maskMap,
     maskKeepThreshold: 0.5,
   });
+  return { id, depthRange, texture, mesh, parallax: 1 };
+}
 
-  return [
-    { id: "bg", depthRange: [0, threshold], texture: bgTexture, mesh: bgMesh, parallax: 1 },
-    { id: "fg", depthRange: [threshold, 1], texture: fgTexture, mesh: fgMesh, parallax: 1 },
+export async function buildLayers(opts: BuildLayersOptions): Promise<SceneLayer[]> {
+  const { depth, maxLayers = 4 } = opts;
+  const { thresholds, cumulativeMasks } = splitDepthLayers(depth, { maxLayers });
+
+  // 分割ゲート不通過（深度が連続的）: 連続メッシュ 1 枚で表現
+  if (thresholds.length === 0) {
+    return [await buildBackLayer(opts, null, PIPELINE_DEFAULTS.fgTextureSide, "scene", [0, 1])];
+  }
+
+  const layers: SceneLayer[] = [
+    await buildBackLayer(opts, cumulativeMasks[0], PIPELINE_DEFAULTS.bgTextureSide, "bg", [
+      0,
+      thresholds[0],
+    ]),
   ];
+  for (let i = 0; i < thresholds.length; i++) {
+    const isFront = i === thresholds.length - 1;
+    layers.push(
+      await buildMatteLayer(
+        opts,
+        cumulativeMasks[i],
+        isFront ? null : cumulativeMasks[i + 1],
+        isFront ? PIPELINE_DEFAULTS.fgTextureSide : PIPELINE_DEFAULTS.midTextureSide,
+        isFront ? "fg" : `mid${i + 1}`,
+        [thresholds[i], isFront ? 1 : thresholds[i + 1]]
+      )
+    );
+  }
+  return layers;
 }

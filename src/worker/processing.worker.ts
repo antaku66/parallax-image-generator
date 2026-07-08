@@ -140,6 +140,7 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
         backend: est.backend ?? "wasm",
         gridX: IMAGE_LIMITS[tier].meshGrid,
         gridY: IMAGE_LIMITS[tier].meshGrid,
+        maxLayers: IMAGE_LIMITS[tier].maxLayers,
         depthSide: IMAGE_LIMITS[tier].depthSide,
         startedAt,
         onStage: emitProgress,

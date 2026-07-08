@@ -11,7 +11,7 @@ type SpatialSceneAsset = {
   version: number;
   source: SourceImageAsset;      // 表示用 ImageBitmap + 寸法 + hash
   depthMap: FloatDepthMap | QuantizedDepthMap; // 0=far/1=near
-  layers: SceneLayer[];          // 単層（連続メッシュ）または 背景（インペイント）+ 前景（切抜）
+  layers: SceneLayer[];          // 単層（連続メッシュ）または 最背面（完全インペイント）+ 中間/最前面（マット切抜）× 1〜3
   metadata: SceneMetadata;
 };
 ```

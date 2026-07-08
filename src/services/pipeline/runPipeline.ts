@@ -26,6 +26,7 @@ export type PipelineDeps = {
   backend: OnnxBackend;
   gridX?: number;
   gridY?: number;
+  maxLayers?: number;
   depthSide: number;
   startedAt: number;
   onStage: (stage: ProcessingStage, progress: number) => void;
@@ -41,6 +42,7 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
     backend,
     gridX = PIPELINE_DEFAULTS.gridX,
     gridY = PIPELINE_DEFAULTS.gridY,
+    maxLayers,
     depthSide,
     startedAt,
     onStage,
@@ -65,13 +67,14 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
   checkpoint(shouldCancel);
 
   onStage("building-mesh", 0.7);
-  // 前景/背景分離 + 背景インペイントで遮蔽の穴を根本解消する
+  // 多層分割 + 各層のインペイントで遮蔽の穴を根本解消する
   const layers = await buildLayers({
     depth,
     display: pre.display,
     gridX,
     gridY,
     depthScale: PIPELINE_DEFAULTS.depthScale,
+    maxLayers,
   });
   if (shouldCancel()) {
     // 生成済みのレイヤーテクスチャを解放してから打ち切る（display は呼び出し側が解放）
