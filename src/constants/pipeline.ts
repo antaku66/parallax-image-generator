@@ -36,12 +36,11 @@ export const PIPELINE_DEFAULTS = {
   minSlabDepthSpan: 0.15,
   // 最背面レイヤーの外周ガター（interior 比）。視差移動時のフレーム外露出をインペイント余白で防ぐ。
   bgGutter: 0.04,
+  // 単層シーンのバックドロップを表層より奥へ下げる量（深度単位）。
+  // 非穴領域では表層と同一深度になるため、Z ファイティングを避ける。
+  backdropZOffset: 0.02,
   // 前景メッシュは内部に穴を作らないよう不連続カリングを緩める（縁はアルファマットで処理）
   fgDiscontinuityThreshold: 0.9,
-  bgTextureSide: 1024,
-  // 中間レイヤーのテクスチャ長辺。中景は解像度感度が低く、bg と同じに抑えて GPU メモリを節約する。
-  midTextureSide: 1024,
-  fgTextureSide: 1600,
   // 背景インペイント時に前景マスクを膨張させる半径(px)。被写体フリンジの混入を防ぐ。
   inpaintDilate: 6,
   // アルファマットのエッジ整合アップサンプリング（guided filter）。

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { upsampleBilinear, dilateMax, erodeMin } from "../maskOps";
+import { upsampleBilinear, dilateMax, erodeMin, downsampleMax } from "../maskOps";
 
 describe("upsampleBilinear", () => {
   it("拡大しても端点値を保持し、寸法が変わる", () => {
@@ -33,6 +33,38 @@ describe("dilateMax", () => {
   it("r<=0 はそのまま返す", () => {
     const m = Float32Array.from([0, 1, 0, 1]);
     expect(dilateMax(m, 2, 2, 0)).toBe(m);
+  });
+});
+
+describe("downsampleMax", () => {
+  it("被覆保証: src の 1 画素はどれも縮小先の対応画素を 1 にする", () => {
+    const sw = 16;
+    const sh = 12;
+    const dw = 5;
+    const dh = 4;
+    // 擬似ランダムな 2 値マスク
+    const src = Float32Array.from({ length: sw * sh }, (_, i) => ((i * 7) % 11 < 3 ? 1 : 0));
+    const out = downsampleMax(src, sw, sh, dw, dh);
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        if (src[y * sw + x] > 0.5) {
+          const dx = Math.min(dw - 1, Math.floor((x * dw) / sw));
+          const dy = Math.min(dh - 1, Math.floor((y * dh) / sh));
+          expect(out[dy * dw + dx]).toBe(1);
+        }
+      }
+    }
+  });
+
+  it("全 0 のマスクは全 0 のまま", () => {
+    const out = downsampleMax(new Float32Array(8 * 8), 8, 8, 3, 3);
+    for (const v of out) expect(v).toBe(0);
+  });
+
+  it("2 値出力（0 か 1 のみ）", () => {
+    const src = Float32Array.from({ length: 6 * 6 }, (_, i) => (i % 2 ? 0.7 : 0.3));
+    const out = downsampleMax(src, 6, 6, 2, 2);
+    for (const v of out) expect(v === 0 || v === 1).toBe(true);
   });
 });
 

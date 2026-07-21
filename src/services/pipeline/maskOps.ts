@@ -31,6 +31,30 @@ export function upsampleBilinear(
   return out;
 }
 
+/**
+ * 最大値プーリングで 2 値マスクを (dw,dh) へ縮小する。
+ * src 側の 1 画素でも掛かる出力画素は必ず 1 になる（縮小してもマスク領域を取りこぼさない被覆保証）。
+ */
+export function downsampleMax(
+  src: Float32Array,
+  sw: number,
+  sh: number,
+  dw: number,
+  dh: number
+): Float32Array {
+  const out = new Float32Array(dw * dh);
+  for (let y = 0; y < sh; y++) {
+    const dy = Math.min(dh - 1, Math.floor((y * dh) / sh));
+    for (let x = 0; x < sw; x++) {
+      if (src[y * sw + x] > 0.5) {
+        const dx = Math.min(dw - 1, Math.floor((x * dw) / sw));
+        out[dy * dw + dx] = 1;
+      }
+    }
+  }
+  return out;
+}
+
 /** 最小値フィルタ（収縮）。半径 r の分離型。境界はクランプ。前景アルファのチョークに使う。 */
 export function erodeMin(mask: Float32Array, w: number, h: number, r: number): Float32Array {
   if (r <= 0) return mask;
