@@ -4,6 +4,7 @@
 import * as Comlink from "comlink";
 import type {
   DepthEstimator,
+  ForegroundSegmenter,
   ModelName,
   ProcessingStage,
   SpatialSceneAsset,
@@ -17,8 +18,9 @@ import { CancellationRegistry, CancelledError } from "./cancellation";
 import { resolveImageTier } from "../services/device/deviceTier";
 import { preprocessImage } from "../services/image/preprocess";
 import { hashFile } from "../services/hash/imageHash";
-import { isModelAvailable } from "../services/depth/modelManifest";
+import { isModelAvailable, isModelUrlAvailable } from "../services/depth/modelManifest";
 import { createDepthEstimator } from "../services/depth/DepthEstimator";
+import { OnnxForegroundSegmenter } from "../services/segmentation/OnnxForegroundSegmenter";
 import { runPipeline } from "../services/pipeline/runPipeline";
 import { buildFallbackAsset } from "../services/pipeline/fallbackAsset";
 import { serializeAsset } from "../services/cache/serializeAsset";
@@ -27,7 +29,7 @@ import { deserializeAsset } from "../services/cache/deserializeAsset";
 import { buildSceneCacheKey } from "../services/cache/sceneCacheKey";
 import { collectTransferables } from "../utils/transfer";
 import { closeAssetBitmaps } from "../utils/closeAsset";
-import { DEFAULT_MODEL } from "../constants/models";
+import { DEFAULT_MODEL, DEFAULT_SEG_MODEL, segModelUrl } from "../constants/models";
 import { IMAGE_LIMITS } from "../constants/imageLimits";
 
 const registry = new CancellationRegistry();
@@ -35,27 +37,54 @@ const registry = new CancellationRegistry();
 // モデルごとにローダをキャッシュ（再ロードを避ける）
 let estimator: DepthEstimator | null = null;
 let loadedModel: ModelName | null = null;
+let loadedInputSide: number | null = null;
 // 並走ジョブによる load 競合（二重ロード・片方のセッションリーク）を防ぐ直列化チェーン
 let estimatorChain: Promise<unknown> = Promise.resolve();
 
 function ensureEstimator(
   model: ModelName,
+  inputSide: number,
   onProgress: (loaded: number, total: number) => void
 ): Promise<DepthEstimator> {
   const next = estimatorChain.then(async () => {
-    if (estimator && loadedModel === model) return estimator;
+    if (estimator && loadedModel === model && loadedInputSide === inputSide) return estimator;
     if (estimator) {
       estimator.dispose();
       estimator = null;
       loadedModel = null;
+      loadedInputSide = null;
     }
     const e = createDepthEstimator();
-    await e.load({ model, backend: "auto", onDownloadProgress: onProgress });
+    await e.load({ model, backend: "auto", inputSide, onDownloadProgress: onProgress });
     estimator = e;
     loadedModel = model;
+    loadedInputSide = inputSide;
     return e;
   });
   estimatorChain = next.catch(() => undefined);
+  return next;
+}
+
+// seg モデルは任意配置。ロード成功後はセッションを再利用する（深度側と同じ直列化パターン）
+let segmenter: ForegroundSegmenter | null = null;
+let segChain: Promise<unknown> = Promise.resolve();
+
+function ensureSegmenter(
+  onProgress: (loaded: number, total: number) => void
+): Promise<ForegroundSegmenter | null> {
+  const next = segChain.then(async () => {
+    if (segmenter) return segmenter;
+    try {
+      const s = new OnnxForegroundSegmenter();
+      await s.load({ model: DEFAULT_SEG_MODEL, onDownloadProgress: onProgress });
+      segmenter = s;
+    } catch {
+      // ロード失敗は seg なしで続行（部分失敗の隔離）。次ジョブで再試行する
+      return null;
+    }
+    return segmenter;
+  });
+  segChain = next.catch(() => null);
   return next;
 }
 
@@ -76,7 +105,9 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
 
     const model = DEFAULT_MODEL;
     const tier = resolveImageTier();
-    const cacheKey = buildSceneCacheKey(hash, model, tier);
+    // seg モデルの配置有無はキーに含める（配置/撤去だけで該当資産を自動再生成する）
+    const segAvailable = await isModelUrlAvailable(segModelUrl(DEFAULT_SEG_MODEL));
+    const cacheKey = buildSceneCacheKey(hash, model, tier, segAvailable ? DEFAULT_SEG_MODEL : null);
 
     // キャッシュ確認（実装ガイド §21）
     const cached = await getScene(cacheKey);
@@ -123,9 +154,15 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
     }
 
     try {
-      const est = await ensureEstimator(model, (loaded, total) =>
+      const est = await ensureEstimator(model, IMAGE_LIMITS[tier].depthSide, (loaded, total) =>
         emitProgress("loading-model", 0.06 + 0.04 * (total ? loaded / total : 0))
       );
+      // seg は配置時のみロード（進捗は深度モデルと同じ帯に配分。失敗時は null で続行）
+      const seg = segAvailable
+        ? await ensureSegmenter((loaded, total) =>
+            emitProgress("loading-model", 0.06 + 0.04 * (total ? loaded / total : 0))
+          )
+        : null;
       if (shouldCancel()) {
         pre.inference.close();
         pre.display.close();
@@ -142,6 +179,7 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
         gridY: IMAGE_LIMITS[tier].meshGrid,
         maxLayers: IMAGE_LIMITS[tier].maxLayers,
         depthSide: IMAGE_LIMITS[tier].depthSide,
+        seg: seg ? { segmenter: seg, model: DEFAULT_SEG_MODEL } : null,
         startedAt,
         onStage: emitProgress,
         shouldCancel,

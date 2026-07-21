@@ -1,6 +1,6 @@
 # 主要モジュール
 
-最終更新日: 2026-07-05
+最終更新日: 2026-07-09
 
 ## 1. データモデル（`src/types/`）
 
@@ -18,12 +18,13 @@ type SpatialSceneAsset = {
 
 - 保存用 `SerializedSpatialSceneAsset`（`serialized.ts`）は深度を uint8/16 量子化し、レイヤーテクスチャ/表示画像を Blob 化。
 - `DepthEstimator`（`depth.ts`）: `load / predict / dispose` + `backend`。
+- `ForegroundSegmenter`（`segmentation.ts`）: 同型のセグメンタ interface。`ForegroundMask`（[0,1], 1=前景）を返す。適用状況は `SceneMetadata.segmentation`（model / applied / reason）に記録。
 - Worker API: `ProcessingStage` / `ProcessingEvent`（`worker.ts`）、Comlink 公開面の `StartRequest`（`worker/processingApi.ts`）。
 - レンダラー（`renderer.ts`）: `SpatialSceneRenderer`（`mount/setAsset/setParameters/setCamera/resize/render/dispose`）。
 
 ## 2. Worker（`src/worker/`）
 
-- `processing.worker.ts`: Comlink で `start(req, onEvent)` / `cancel(id)` を公開。ハッシュ算出→キャッシュ確認→前処理→モデル確認→推論→`runPipeline`→serialize/保存→`complete`（キャッシュヒット時は前処理・推論をスキップして早期完了。deserialize に失敗した壊れたエントリは削除して通常処理で再生成）。モデル未配置・推論失敗時は `buildFallbackAsset` を返す。キャンセル・stale イベント時は転送前後の ImageBitmap を close する。
+- `processing.worker.ts`: Comlink で `start(req, onEvent)` / `cancel(id)` を公開。ハッシュ算出→seg モデル配置確認（キャッシュキーの `segVersion` に反映）→キャッシュ確認→前処理→モデル確認→推論（＋配置時のみ seg 推論）→`runPipeline`→serialize/保存→`complete`（キャッシュヒット時は前処理・推論をスキップして早期完了。deserialize に失敗した壊れたエントリは削除して通常処理で再生成）。モデル未配置・推論失敗時は `buildFallbackAsset` を返す。seg のロード/推論失敗は seg なしで続行し、エラー扱いにしない。キャンセル・stale イベント時は転送前後の ImageBitmap を close する。
 - `workerClient.ts`: main 側 `Comlink.wrap`。`startProcessing(req, onEvent)` は `Comlink.proxy(onEvent)` を渡す。
 - `cancellation.ts`: `CancellationRegistry` と `checkpoint()`。
 
@@ -63,7 +64,7 @@ Studio デザイン（`design_handoff_spatial_scene/Studio Viewer.dc.html`）を
 
 - シェル: `StudioShell`（100dvh 縦）/ `TopBar`（ロゴ・Info・New）/ `Stage`（`#eef1f4`）。
 - 状態: `EmptyState`（DropZone）/ `LoadingState`（AmbientBackdrop + ProgressRing + StageChips + Cancel）/ `ViewerState` / `ErrorState`。
-- ビューア: `AmbientBackdrop`（同一画像 blur）/ `PhotoFrame`（額装）/ `SceneCanvas`（Three）/ `CssFallbackViewer`（layers 無し時）/ `DragHint`（初回操作ヒント）/ `FitBadge` / `PerfBadge`（backend・推論辺長・処理時間。処理時間は生成時の値でキャッシュ再表示でも保持。フォールバック資産では非表示）。
+- ビューア: `AmbientBackdrop`（同一画像 blur）/ `PhotoFrame`（額装）/ `SceneCanvas`（Three）/ `CssFallbackViewer`（layers 無し時）/ `DragHint`（初回操作ヒント）/ `FitBadge` / `PerfBadge`（backend・推論辺長・seg 適用状況・処理時間。処理時間は生成時の値でキャッシュ再表示でも保持。フォールバック資産では非表示）。
 - コントロール: `ControlDock`（下部・デスクトップ）/ `ParamSlider`（共通見た目。pointerdown を stopPropagation）/ `DepthSlider` / `ParallaxSlider` / `ResetButton`。
 - モバイル: `MobileSheet`（下部シート）。
 - モーダル: `InfoModal`（アプリ説明 + キャッシュ一括削除。`clearAllCaches` = シーン IndexedDB + `spatial-scene-` プレフィックスの Cache Storage を削除）。

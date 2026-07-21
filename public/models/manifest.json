@@ -8,11 +8,25 @@
       "version": "v2-base-q"
     },
     {
+      "id": "depth-anything-v2-base-fp16",
+      "url": "/models/depth-anything-v2-base-fp16.onnx",
+      "sizeBytes": 199229440,
+      "inputSide": 518,
+      "version": "v2-base-fp16"
+    },
+    {
       "id": "depth-anything-v2-large",
       "url": "/models/depth-anything-v2-large.onnx",
       "sizeBytes": 335544320,
       "inputSide": 518,
       "version": "v2-large-q"
+    },
+    {
+      "id": "modnet",
+      "url": "/models/modnet.onnx",
+      "sizeBytes": 7340032,
+      "inputSide": 512,
+      "version": "modnet-q8"
     }
   ]
 }

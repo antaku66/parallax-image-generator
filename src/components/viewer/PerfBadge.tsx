@@ -4,11 +4,15 @@ import type { SceneMetadata } from "../../types";
 
 export function PerfBadge({ metadata }: { metadata: SceneMetadata }) {
   const parts = [metadata.backend.toUpperCase(), `${metadata.depthSide}px`];
+  if (metadata.segmentation) parts.push(`seg:${metadata.segmentation.applied}`);
   if (metadata.durationMs != null) parts.push(`${(metadata.durationMs / 1000).toFixed(1)}s`);
+  const segTitle = metadata.segmentation
+    ? ` / seg: ${metadata.segmentation.model}${metadata.segmentation.reason ? `（${metadata.segmentation.reason}）` : ""}`
+    : "";
   return (
     <div
       // 処理時間は生成時の値（キャッシュ再表示でも保持される）
-      title={`深度モデル: ${metadata.model} / 処理時間は生成時の値`}
+      title={`深度モデル: ${metadata.model}${segTitle} / 処理時間は生成時の値`}
       style={{
         position: "absolute",
         right: 14,

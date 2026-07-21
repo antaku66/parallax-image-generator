@@ -1,6 +1,7 @@
 // ランタイム空間シーン資産（実装ガイド §7）。保存形式は serialized.ts に分離。
 
 import type { DepthMap, ModelName, OnnxBackend } from "./depth";
+import type { SegFuseMode, SegModelName } from "./segmentation";
 
 /** 元画像（表示用テクスチャ源）。推論用画像は Worker 内で使い捨て、資産には残さない。 */
 export type SourceImageAsset = {
@@ -48,6 +49,13 @@ export type SceneMetadata = {
     gridX: number;
     gridY: number;
     depthScale: number;
+  };
+  /** segmentation の適用状況（seg モデル配置時のみ）。導入効果の計測に使う */
+  segmentation?: {
+    model: SegModelName;
+    applied: SegFuseMode;
+    /** ゲート判定や失敗の理由（採用時は IoU 等の診断値） */
+    reason?: string;
   };
   durationMs?: number;
 };

@@ -19,7 +19,7 @@ export class OnnxDepthEstimator implements DepthEstimator {
   backend: OnnxBackend | null = null;
 
   async load(options: DepthEstimatorLoadOptions): Promise<void> {
-    this.inputSide = snapToPatch(MODELS[options.model].inputSide);
+    this.inputSide = snapToPatch(options.inputSide ?? MODELS[options.model].inputSide);
     const bytes = await fetchModelBytes(options.model, options.onDownloadProgress);
     const { session, backend } = await createSession(bytes);
     this.session = session;

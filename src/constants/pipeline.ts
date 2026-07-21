@@ -11,6 +11,9 @@ export const PIPELINE_DEFAULTS = {
   discontinuityThreshold: 0.18,
   // 深度後処理: スパイク除去（中央値）とエッジ考慮平滑化（guided filter）
   medianRadius: 1,
+  // 中央値フィルタの適用回数。半径を上げると髪・枝など 1〜2px の実構造まで潰れるため、
+  // 半径 1 の反復で 2px 級のスパイク塊を除去する。
+  medianPasses: 2,
   refineRadius: 4,
   refineEps: 1e-3,
   // 前景/背景分離 + 背景インペイントで遮蔽の穴を根本解消する
@@ -33,12 +36,11 @@ export const PIPELINE_DEFAULTS = {
   minSlabDepthSpan: 0.15,
   // 最背面レイヤーの外周ガター（interior 比）。視差移動時のフレーム外露出をインペイント余白で防ぐ。
   bgGutter: 0.04,
+  // 単層シーンのバックドロップを表層より奥へ下げる量（深度単位）。
+  // 非穴領域では表層と同一深度になるため、Z ファイティングを避ける。
+  backdropZOffset: 0.02,
   // 前景メッシュは内部に穴を作らないよう不連続カリングを緩める（縁はアルファマットで処理）
   fgDiscontinuityThreshold: 0.9,
-  bgTextureSide: 1024,
-  // 中間レイヤーのテクスチャ長辺。中景は解像度感度が低く、bg と同じに抑えて GPU メモリを節約する。
-  midTextureSide: 1024,
-  fgTextureSide: 1600,
   // 背景インペイント時に前景マスクを膨張させる半径(px)。被写体フリンジの混入を防ぐ。
   inpaintDilate: 6,
   // アルファマットのエッジ整合アップサンプリング（guided filter）。

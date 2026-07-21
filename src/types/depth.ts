@@ -27,11 +27,14 @@ export type OnnxBackend = "webgpu" | "wasm";
 /** 対応モデル名 */
 export type ModelName =
   | "depth-anything-v2-base"
+  | "depth-anything-v2-base-fp16"
   | "depth-anything-v2-large";
 
 export type DepthEstimatorLoadOptions = {
   model: ModelName;
   backend: "auto" | OnnxBackend;
+  /** 推論長辺の上限。tier 別の depthSide を渡す（省略時はモデル既定値） */
+  inputSide?: number;
   /** モデルダウンロードの進捗コールバック */
   onDownloadProgress?: (loaded: number, total: number) => void;
 };

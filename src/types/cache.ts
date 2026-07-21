@@ -8,4 +8,6 @@ export type SceneCacheKey = {
   processingVersion: string;
   /** 解像度階層（mobile/desktop）。tier 依存の解像度が資産に焼き込まれるためキーに含める */
   tier: string;
+  /** seg モデルのバージョン（未配置は "none"）。配置/撤去だけで該当資産を再生成する */
+  segVersion: string;
 };

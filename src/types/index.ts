@@ -2,6 +2,7 @@
 
 export * from "./app";
 export * from "./depth";
+export * from "./segmentation";
 export * from "./asset";
 export * from "./serialized";
 export * from "./worker";

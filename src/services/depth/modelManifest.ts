@@ -1,4 +1,5 @@
-// モデルの存在確認・取得・キャッシュ（MD §6, §18）
+// モデルの存在確認・取得・キャッシュ（MD §6, §18）。
+// URL ベースの汎用関数を深度モデル・seg モデルで共用する。
 
 import { MODELS, modelUrl } from "../../constants/models";
 import type { ModelName } from "../../types";
@@ -6,12 +7,12 @@ import type { ModelName } from "../../types";
 const MODEL_CACHE = "spatial-scene-models-v1";
 
 /**
- * モデルが配置されているか。未配置なら CSS/Canvas フォールバックへ落とす（MD §20）。
+ * URL のモデルが配置されているか（HEAD）。未配置なら該当機能なしで進む（MD §20）。
  * SPA ホストが 404 に index.html を返す罠を content-type で回避。
  */
-export async function isModelAvailable(model: ModelName): Promise<boolean> {
+export async function isModelUrlAvailable(url: string): Promise<boolean> {
   try {
-    const res = await fetch(modelUrl(model), { method: "HEAD" });
+    const res = await fetch(url, { method: "HEAD" });
     const ct = res.headers.get("content-type") ?? "";
     return res.ok && !ct.includes("text/html");
   } catch {
@@ -19,12 +20,25 @@ export async function isModelAvailable(model: ModelName): Promise<boolean> {
   }
 }
 
-/** モデルバイト列を取得（Cache Storage 優先, DL 進捗対応） */
-export async function fetchModelBytes(
+/** 深度モデルが配置されているか。未配置なら CSS/Canvas フォールバックへ落とす */
+export function isModelAvailable(model: ModelName): Promise<boolean> {
+  return isModelUrlAvailable(modelUrl(model));
+}
+
+/** 深度モデルのバイト列を取得（Cache Storage 優先, DL 進捗対応） */
+export function fetchModelBytes(
   model: ModelName,
   onProgress?: (loaded: number, total: number) => void
 ): Promise<Uint8Array> {
-  const url = modelUrl(model);
+  return fetchModelBytesFromUrl(modelUrl(model), MODELS[model].sizeBytes, onProgress);
+}
+
+/** URL のモデルバイト列を取得（Cache Storage 優先, DL 進捗対応） */
+export async function fetchModelBytesFromUrl(
+  url: string,
+  fallbackTotal: number,
+  onProgress?: (loaded: number, total: number) => void
+): Promise<Uint8Array> {
   const cache = await caches.open(MODEL_CACHE).catch(() => null);
   if (cache) {
     const hit = await cache.match(url);
@@ -34,7 +48,7 @@ export async function fetchModelBytes(
   const res = await fetch(url);
   if (!res.ok) throw new Error(`モデル取得に失敗しました: ${res.status}`);
 
-  const total = Number(res.headers.get("content-length")) || MODELS[model].sizeBytes;
+  const total = Number(res.headers.get("content-length")) || fallbackTotal;
   const reader = res.body?.getReader();
   let bytes: Uint8Array;
   if (!reader) {
