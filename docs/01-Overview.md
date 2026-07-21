@@ -1,6 +1,6 @@
 # Spatial Scene Web App 概要
 
-最終更新日: 2026-07-05
+最終更新日: 2026-07-09
 
 ## 1. プロジェクトの目的
 
@@ -10,9 +10,10 @@
 
 1. **画像アップロード**: ドラッグ&ドロップ / ファイル選択
 2. **深度推定**: Depth Anything V2 による単眼深度推定（ONNX Runtime Web）
-3. **空間シーン**: 深度から多層レイヤー（1〜4 層の Layered Depth Image。深度が連続的な画像は単層）とメッシュを生成し Three.js で描画、ドラッグで視点移動
-4. **フォールバック**: モデル未配置/推論失敗時は CSS/Canvas の簡易視差へ自動降格
-5. **キャッシュ**: 同一画像は IndexedDB から即時再表示。アプリシェル/ORT wasm は Service Worker、モデルは Cache Storage でキャッシュし、情報モーダルから一括削除できる
+3. **前景マッティング（任意）**: MODNet（配置時のみ）で最前面レイヤーのマットを補正。信頼度ゲートを通過した画像のみ適用し、未配置・失敗・不採用は深度のみで処理する
+4. **空間シーン**: 深度から多層レイヤー（1〜4 層の Layered Depth Image。深度が連続的な画像は単層 + 必要に応じたバックドロップ）とメッシュを生成し Three.js で描画、ドラッグで視点移動
+5. **フォールバック**: モデル未配置/推論失敗時は CSS/Canvas の簡易視差へ自動降格
+6. **キャッシュ**: 同一画像は IndexedDB から即時再表示。アプリシェル/ORT wasm は Service Worker、モデルは Cache Storage でキャッシュし、情報モーダルから一括削除できる
 
 ## 3. 設計原則（実装ガイド §5 準拠）
 
@@ -46,7 +47,7 @@
 | スタイル | TailwindCSS v4（`@theme` トークン） | Studio デザイン |
 | テスト | Vitest | 純ロジックのユニットテスト |
 
-深度モデル（Depth Anything V2 Base ONNX, 量子化 約97MB。より高精細な Large も選択可）は `public/models/` に配置する（入手手順は [05-Implementation.md](05-Implementation.md)）。**未配置でも CSS/Canvas フォールバックで動作**する。
+深度モデル（Depth Anything V2 Base ONNX, 量子化 約97MB。量子化ノイズの少ない fp16 版や、より高精細な Large も選択可）は `public/models/` に配置する（入手手順は [05-Implementation.md](05-Implementation.md)）。**未配置でも CSS/Canvas フォールバックで動作**する。前景マッティングモデル（MODNet, 約7MB）も同様に任意配置で、配置時のみマット補正に使う。
 
 ## 6. アーキテクチャ全体図
 
@@ -65,6 +66,7 @@ flowchart TB
     subgraph Worker["Processing Worker"]
         Pre["前処理（OffscreenCanvas）"]
         Depth["DepthEstimator（ONNX / WebGPU→WASM）"]
+        Seg["ForegroundSegmenter（MODNet, 任意配置）"]
         Pipe["Pipeline（正規化→精緻化→レイヤー生成）"]
         Ser["serialize"]
     end
@@ -78,8 +80,9 @@ flowchart TB
     Store --> Renderer
     Drag --> Renderer
     UI -->|start/cancel| Comlink
-    Comlink --> Pre --> Depth --> Pipe --> Ser
+    Comlink --> Pre --> Depth --> Seg --> Pipe --> Ser
     Depth <--> Cache
+    Seg <--> Cache
     Ser --> IDB
     Pipe -->|"complete（Transferable）"| Comlink --> Store
     Store -->|asset| Renderer

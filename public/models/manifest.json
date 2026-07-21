@@ -20,6 +20,13 @@
       "sizeBytes": 335544320,
       "inputSide": 518,
       "version": "v2-large-q"
+    },
+    {
+      "id": "modnet",
+      "url": "/models/modnet.onnx",
+      "sizeBytes": 7340032,
+      "inputSide": 512,
+      "version": "modnet-q8"
     }
   ]
 }

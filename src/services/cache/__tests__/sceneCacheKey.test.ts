@@ -11,13 +11,24 @@ describe("SceneCacheKey", () => {
     expect(key.modelVersion).toBe(MODELS["depth-anything-v2-base"].version);
     expect(key.processingVersion).toBe(PROCESSING_VERSION);
     expect(key.tier).toBe("desktop");
+    expect(key.segVersion).toBe("none");
   });
 
   it("安定した文字列へ直列化する", () => {
     const key = buildSceneCacheKey("abc123", "depth-anything-v2-base", "desktop");
     const str = sceneCacheKeyString(key);
     expect(str.startsWith("abc123|depth-anything-v2-base|")).toBe(true);
-    expect(str.split("|")).toHaveLength(5);
+    expect(str.split("|")).toHaveLength(6);
+  });
+
+  it("seg モデルの配置有無でキー文字列が異なる（配置/撤去だけで再生成される）", () => {
+    const without = sceneCacheKeyString(
+      buildSceneCacheKey("abc123", "depth-anything-v2-base", "desktop")
+    );
+    const withSeg = sceneCacheKeyString(
+      buildSceneCacheKey("abc123", "depth-anything-v2-base", "desktop", "modnet")
+    );
+    expect(without).not.toBe(withSeg);
   });
 
   it("tier が異なればキー文字列も異なる（別 tier の資産を誤ヒットさせない）", () => {

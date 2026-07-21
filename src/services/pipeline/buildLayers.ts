@@ -10,7 +10,7 @@
 // カリングで三角形が落ちた場合のみ、不連続の手前側をインペイントしたバックドロップを奥に敷く。
 // 最背面レイヤーは外周ガター（インペイント余白）を持ち、視差移動時のフレーム外露出を防ぐ。
 
-import type { FloatDepthMap, SceneLayer, SceneMesh } from "../../types";
+import type { FloatDepthMap, SceneLayer, SceneMesh, SegFuseMode } from "../../types";
 import { PIPELINE_DEFAULTS } from "../../constants/pipeline";
 import { clamp } from "../../utils/clamp";
 import {
@@ -20,6 +20,8 @@ import {
 } from "../image/canvas";
 import { splitDepthLayers } from "./splitDepthLayers";
 import { discontinuityNearMask } from "./discontinuityNearMask";
+import { evaluateSegGate } from "./segmentationGate";
+import { fuseMatte } from "./fuseMatte";
 import { pushPullInpaint } from "./pushPullInpaint";
 import { guidedFilter, guidedFilterColor } from "./refineDepth";
 import { upsampleBilinear, dilateMax, erodeMin, downsampleMax } from "./maskOps";
@@ -33,6 +35,14 @@ export type BuildLayersOptions = {
   depthScale: number;
   /** レイヤー数の上限（tier 別。IMAGE_LIMITS[tier].maxLayers） */
   maxLayers?: number;
+  /** 前景 seg マスク（深度と同寸 [0,1], 1=前景）。ゲート通過時のみ最前面マットへ融合 */
+  seg?: Float32Array;
+};
+
+export type BuildLayersResult = {
+  layers: SceneLayer[];
+  /** seg 提供時の適用状況（未提供は null）。metadata.segmentation の材料 */
+  seg: { applied: SegFuseMode; reason: string } | null;
 };
 
 /** 深度解像度→テクスチャ解像度の拡大率に応じた guided filter 半径 */
@@ -284,17 +294,19 @@ async function buildMatteLayer(
   return { id, depthRange, texture, mesh, parallax: 1 };
 }
 
-export async function buildLayers(opts: BuildLayersOptions): Promise<SceneLayer[]> {
-  const { depth, maxLayers = 4 } = opts;
+export async function buildLayers(opts: BuildLayersOptions): Promise<BuildLayersResult> {
+  const { depth, display, maxLayers = 4, seg } = opts;
   const { thresholds, cumulativeMasks } = splitDepthLayers(depth, { maxLayers });
+  let segResult: BuildLayersResult["seg"] = seg ? { applied: "none", reason: "" } : null;
 
   // 分割ゲート不通過（深度が連続的）: 連続メッシュ 1 枚で表現
   if (thresholds.length === 0) {
+    if (segResult) segResult.reason = "単層シーンは未対応";
     const scene = await buildBackLayer(opts, null, "scene", [0, 1]);
     const { gridX, gridY, depthScale } = opts;
     // 不連続カリングで三角形が 1 枚も落ちていなければ穴は開かないため単層のまま
     if (!scene.mesh || scene.mesh.triangleCount === gridX * gridY * 2) {
-      return [scene];
+      return { layers: [scene], seg: segResult };
     }
     // 落ちた穴の背後には何もなく背景色が露出する。不連続の手前側を穴として
     // インペイントしたバックドロップを奥に敷く（多層時の最背面と同じ構成）。
@@ -307,7 +319,31 @@ export async function buildLayers(opts: BuildLayersOptions): Promise<SceneLayer[
     if (backdrop.mesh) {
       offsetMeshZ(backdrop.mesh, -PIPELINE_DEFAULTS.backdropZOffset * depthScale);
     }
-    return [backdrop, scene];
+    return { layers: [backdrop, scene], seg: segResult };
+  }
+
+  // seg 融合（最前面の累積マスクのみ）。ゲート不採用なら深度のみマットのまま。
+  // 差し替え後は中間層の穴（nearer）も融合済みマスクを参照するため表示と穴が整合する。
+  if (seg) {
+    const front = cumulativeMasks[cumulativeMasks.length - 1];
+    const gate = evaluateSegGate(seg, depth.data, front);
+    segResult = { applied: gate.mode, reason: gate.reason };
+    if (gate.mode !== "none") {
+      // 許容拡張半径は下層インペイント穴の膨張幅（inpaintDilate の深度解像度換算）に
+      // 抑え、穴が覆えない領域まで seg がシルエットを広げる「ゴースト」を防ぐ
+      const r = Math.max(
+        1,
+        Math.floor((PIPELINE_DEFAULTS.inpaintDilate * depth.width) / display.width)
+      );
+      cumulativeMasks[cumulativeMasks.length - 1] = fuseMatte(
+        front,
+        seg,
+        depth.width,
+        depth.height,
+        gate.mode,
+        r
+      );
+    }
   }
 
   const layers: SceneLayer[] = [
@@ -325,5 +361,5 @@ export async function buildLayers(opts: BuildLayersOptions): Promise<SceneLayer[
       )
     );
   }
-  return layers;
+  return { layers, seg: segResult };
 }

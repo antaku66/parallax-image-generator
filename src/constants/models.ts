@@ -1,6 +1,6 @@
 // モデル配置とメタ（実装ガイド §6, §9）。public/models/manifest.json と同内容（手動同期）。
 
-import type { ModelName } from "../types";
+import type { ModelName, SegModelName } from "../types";
 
 /** ImageNet 正規化パラメータ（Depth Anything V2 の前処理） */
 export const IMAGENET_NORMALIZATION = {
@@ -53,4 +53,33 @@ export const DEFAULT_MODEL: ModelName = "depth-anything-v2-base";
 
 export function modelUrl(model: ModelName): string {
   return `${MODELS_BASE_PATH}${MODELS[model].file}`;
+}
+
+type SegModelMeta = {
+  file: string;
+  version: string;
+  /** 推論長辺（32 の倍数へスナップ） */
+  inputSide: number;
+  sizeBytes: number;
+  /** 入力正規化 (x - mean) / std（MODNet は 0.5/0.5） */
+  normalization: { mean: number; std: number };
+};
+
+/** 前景セグメンテーション（マッティング）モデル。深度モデルと同様に任意配置 */
+export const SEG_MODELS: Record<SegModelName, SegModelMeta> = {
+  // MODNet（Apache-2.0）: 人物ポートレート特化のトライマップフリー・マッティング。
+  // 連続アルファを直接出力し髪などのソフト境界に強い。動的軸対応（両辺 32 の倍数）。
+  modnet: {
+    file: "modnet.onnx",
+    version: "modnet-q8",
+    inputSide: 512,
+    sizeBytes: 7 * 1024 * 1024,
+    normalization: { mean: 0.5, std: 0.5 },
+  },
+};
+
+export const DEFAULT_SEG_MODEL: SegModelName = "modnet";
+
+export function segModelUrl(model: SegModelName): string {
+  return `${MODELS_BASE_PATH}${SEG_MODELS[model].file}`;
 }
