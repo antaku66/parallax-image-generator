@@ -16,7 +16,7 @@ import { normalizeDepth } from "./normalizeDepth";
 import { medianDepth } from "./medianDepth";
 import { refineDepth } from "./refineDepth";
 import { buildLayers } from "./buildLayers";
-import { bitmapToImageData, luminanceFromImageData } from "../image/canvas";
+import { bitmapToImageData, rgbPlanesFromImageData } from "../image/canvas";
 
 export type PipelineDeps = {
   estimator: DepthEstimator;
@@ -51,15 +51,17 @@ export async function runPipeline(deps: PipelineDeps): Promise<SpatialSceneAsset
 
   onStage("estimating-depth", 0.1);
   const raw = await estimator.predict(pre.inference);
-  // エッジ整合用ガイド（深度と同寸の RGB 輝度）を close 前に取り出す
-  const guide = luminanceFromImageData(bitmapToImageData(pre.inference, raw.width, raw.height));
+  // エッジ整合用ガイド（深度と同寸の RGB planar）を close 前に取り出す
+  const guide = rgbPlanesFromImageData(bitmapToImageData(pre.inference, raw.width, raw.height));
   pre.inference.close();
   checkpoint(shouldCancel);
 
   onStage("normalizing-depth", 0.5);
   // 正規化 → スパイク除去 → エッジ考慮平滑化（深度エッジを実シルエットへ整合）
-  const normalized = normalizeDepth(raw);
-  const denoised = medianDepth(normalized, PIPELINE_DEFAULTS.medianRadius);
+  let denoised = normalizeDepth(raw);
+  for (let i = 0; i < PIPELINE_DEFAULTS.medianPasses; i++) {
+    denoised = medianDepth(denoised, PIPELINE_DEFAULTS.medianRadius);
+  }
   const depth = refineDepth(denoised, guide, {
     radius: PIPELINE_DEFAULTS.refineRadius,
     eps: PIPELINE_DEFAULTS.refineEps,

@@ -18,6 +18,9 @@ export function bitmapToImageData(
 ): ImageData {
   const canvas = createOffscreen(width, height);
   const ctx = get2d(canvas);
+  // 既定の平滑化品質はブラウザ依存で粗く、縮小時にエイリアス/モアレが出るため明示する
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   return ctx.getImageData(0, 0, width, height);
 }
@@ -33,6 +36,23 @@ export function luminanceFromImageData(img: ImageData): Float32Array {
     out[i] = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   }
   return out;
+}
+
+/** ImageData を RGB planar の Float32Array×3（[0,1]）へ変換（カラー guided filter のガイド用） */
+export function rgbPlanesFromImageData(
+  img: ImageData
+): [Float32Array, Float32Array, Float32Array] {
+  const { data } = img;
+  const n = img.width * img.height;
+  const r = new Float32Array(n);
+  const g = new Float32Array(n);
+  const b = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    r[i] = data[i * 4] / 255;
+    g[i] = data[i * 4 + 1] / 255;
+    b[i] = data[i * 4 + 2] / 255;
+  }
+  return [r, g, b];
 }
 
 /** ImageBitmap を encoded Blob 化（保存用） */

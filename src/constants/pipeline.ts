@@ -11,6 +11,9 @@ export const PIPELINE_DEFAULTS = {
   discontinuityThreshold: 0.18,
   // 深度後処理: スパイク除去（中央値）とエッジ考慮平滑化（guided filter）
   medianRadius: 1,
+  // 中央値フィルタの適用回数。半径を上げると髪・枝など 1〜2px の実構造まで潰れるため、
+  // 半径 1 の反復で 2px 級のスパイク塊を除去する。
+  medianPasses: 2,
   refineRadius: 4,
   refineEps: 1e-3,
   // 前景/背景分離 + 背景インペイントで遮蔽の穴を根本解消する

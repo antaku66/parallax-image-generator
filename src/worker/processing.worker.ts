@@ -35,24 +35,28 @@ const registry = new CancellationRegistry();
 // モデルごとにローダをキャッシュ（再ロードを避ける）
 let estimator: DepthEstimator | null = null;
 let loadedModel: ModelName | null = null;
+let loadedInputSide: number | null = null;
 // 並走ジョブによる load 競合（二重ロード・片方のセッションリーク）を防ぐ直列化チェーン
 let estimatorChain: Promise<unknown> = Promise.resolve();
 
 function ensureEstimator(
   model: ModelName,
+  inputSide: number,
   onProgress: (loaded: number, total: number) => void
 ): Promise<DepthEstimator> {
   const next = estimatorChain.then(async () => {
-    if (estimator && loadedModel === model) return estimator;
+    if (estimator && loadedModel === model && loadedInputSide === inputSide) return estimator;
     if (estimator) {
       estimator.dispose();
       estimator = null;
       loadedModel = null;
+      loadedInputSide = null;
     }
     const e = createDepthEstimator();
-    await e.load({ model, backend: "auto", onDownloadProgress: onProgress });
+    await e.load({ model, backend: "auto", inputSide, onDownloadProgress: onProgress });
     estimator = e;
     loadedModel = model;
+    loadedInputSide = inputSide;
     return e;
   });
   estimatorChain = next.catch(() => undefined);
@@ -123,7 +127,7 @@ async function start(req: StartRequest, onEvent: ProcessingEventCallback): Promi
     }
 
     try {
-      const est = await ensureEstimator(model, (loaded, total) =>
+      const est = await ensureEstimator(model, IMAGE_LIMITS[tier].depthSide, (loaded, total) =>
         emitProgress("loading-model", 0.06 + 0.04 * (total ? loaded / total : 0))
       );
       if (shouldCancel()) {

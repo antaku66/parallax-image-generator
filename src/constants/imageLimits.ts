@@ -7,7 +7,7 @@
 // メモリ・処理時間の観点で抑える（実装ガイド §13 の 6 は過大）。
 export const IMAGE_LIMITS = {
   mobile: { maxInputSide: 1600, depthSide: 392, textureSide: 1024, meshGrid: 128, maxLayers: 3 },
-  desktop: { maxInputSide: 2400, depthSide: 518, textureSide: 1600, meshGrid: 192, maxLayers: 4 },
+  desktop: { maxInputSide: 2400, depthSide: 686, textureSide: 1600, meshGrid: 256, maxLayers: 4 },
 } as const;
 
 export type ImageLimitTier = keyof typeof IMAGE_LIMITS;

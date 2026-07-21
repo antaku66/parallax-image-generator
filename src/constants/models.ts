@@ -19,7 +19,7 @@ export const DEPTH_MODEL_IO = {
 type ModelMeta = {
   file: string;
   version: string;
-  /** 推論入力辺（14 の倍数） */
+  /** モデル既定の推論長辺上限（14 の倍数）。load 時の inputSide 指定が優先される */
   inputSide: number;
   sizeBytes: number;
 };
@@ -31,6 +31,13 @@ export const MODELS: Record<ModelName, ModelMeta> = {
     inputSide: 518,
     sizeBytes: 97 * 1024 * 1024,
   },
+  // int8 量子化起因の低周波ノイズ（平面の波打ち・帯）が気になる場合の代替
+  "depth-anything-v2-base-fp16": {
+    file: "depth-anything-v2-base-fp16.onnx",
+    version: "v2-base-fp16",
+    inputSide: 518,
+    sizeBytes: 190 * 1024 * 1024,
+  },
   "depth-anything-v2-large": {
     file: "depth-anything-v2-large.onnx",
     version: "v2-large-q",
@@ -40,6 +47,7 @@ export const MODELS: Record<ModelName, ModelMeta> = {
 };
 
 // 既定モデル。base は WebGPU/WASM 双方で現実的な処理時間・ダウンロード量に収まる。
+// 量子化ノイズが気になるなら "depth-anything-v2-base-fp16"、
 // より高精細が必要で GPU が強力なら "depth-anything-v2-large" へ差し替える。
 export const DEFAULT_MODEL: ModelName = "depth-anything-v2-base";
 
